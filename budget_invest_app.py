@@ -4,8 +4,16 @@ import plotly.express as px
 import requests
 import openai
 
-# ✅ Set API key securely from Streamlit Cloud secrets
 openai.api_key = st.secrets["openai"]["api_key"]
+
+# When you want to generate suggestions:
+response = openai.chat.completions.create(
+    model="gpt-3.5-turbo",
+    messages=[{"role": "user", "content": prompt}],
+    max_tokens=200
+)
+ai_suggestion = response.choices[0].message.content
+
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
 st.title("💸 Budgeting + Investment Planner (with AI Suggestions, Tax, Investments, Warnings & Target)")
