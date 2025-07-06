@@ -4,7 +4,7 @@ import plotly.express as px
 import requests
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
-st.title("💸 Budgeting + Investment Planner (with Savings Target)")
+st.title("💸 Budgeting + Investment Planner (with Warnings & Savings Target)")
 
 API_KEY = "ZGX1F29EUR1W6A6X"
 
@@ -40,7 +40,7 @@ bonds = st.sidebar.number_input("Bonds investment ($)", 0.0, 5000.0, 300.0, 100.
 months = st.sidebar.slider("Projection period (months)", 1, 60, 12)
 savings_target = st.sidebar.number_input("Savings target at end of period ($)", 0.0, 1_000_000.0, 10000.0, 500.0)
 
-# --- Get returns
+# --- Fetch returns
 st.sidebar.header("📡 Fetching returns...")
 stock_r = get_alpha_vantage_monthly_return("SPY") or 0.01
 bond_r = get_alpha_vantage_monthly_return("AGG") or 0.003
@@ -76,29 +76,79 @@ col2.metric("Expenses", f"${total_exp:,.2f}")
 col3.metric("Investments", f"${total_inv:,.2f}")
 col4.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
-# --- Emoticons
+# --- Expense warnings
+expense_warnings = []
+if housing > 0.4 * income:
+    expense_warnings.append("🏠 Housing costs exceed 40% of your income.")
+if food > 0.3 * income:
+    expense_warnings.append("🍽 Food costs exceed 30% of your income.")
+if entertainment > 0.1 * income:
+    expense_warnings.append("🎮 Entertainment costs exceed 10% of your income.")
+
+if expense_warnings:
+    st.subheader("⚠ Expense Warnings")
+    for warn in expense_warnings:
+        st.warning(warn)
+else:
+    st.success("✅ Your expenses look balanced!")
+
+# --- Investment mix warnings
+inv_warnings = []
+if total_inv > 0:
+    stock_pct = stocks / total_inv
+    bond_pct = bonds / total_inv
+
+    if stock_pct > 0.8:
+        inv_warnings.append("📈 Portfolio heavily weighted toward stocks (>80%). Consider diversifying.")
+    if bond_pct > 0.8:
+        inv_warnings.append("💵 Portfolio heavily weighted toward bonds (>80%). Consider balancing.")
+
+if inv_warnings:
+    st.subheader("⚠ Investment Mix Warnings")
+    for warn in inv_warnings:
+        st.warning(warn)
+else:
+    st.success("✅ Your investment portfolio looks balanced!")
+
+# --- Emoticon for net cash flow
 if net_flow > 0:
     st.image("https://i.imgur.com/3GvwNBf.png", width=100, caption="✅ You're saving money!")
 else:
     st.image("https://i.imgur.com/8z9uX5j.png", width=100, caption="⚠ You're overspending!")
 
-# --- Savings target check
+# --- Savings target check with colored emote box
+st.subheader("🎯 Savings Target Check")
 final_net = df["NetWorth"].iloc[-1]
 gap = savings_target - final_net
-st.subheader("🎯 Savings Target Check")
+
 st.write(f"Target: ${savings_target:,.2f}")
 st.write(f"Projected Net Worth: ${final_net:,.2f}")
+
 if gap > 0:
-    st.warning(f"⚠ You are ${gap:,.2f} below your target.")
-    st.image("https://i.imgur.com/8z9uX5j.png", width=80)
+    st.markdown(
+        f"""
+        <div style="border: 3px solid red; padding:10px; display: inline-block; border-radius:10px;">
+        <img src="https://i.imgur.com/8z9uX5j.png" width="80"><br>
+        <b style="color:red;">⚠ You are ${gap:,.2f} below your target.</b>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 else:
-    st.success(f"✅ You will exceed your target by ${-gap:,.2f}!")
-    st.image("https://i.imgur.com/3GvwNBf.png", width=80)
+    st.markdown(
+        f"""
+        <div style="border: 3px solid green; padding:10px; display: inline-block; border-radius:10px;">
+        <img src="https://i.imgur.com/3GvwNBf.png" width="80"><br>
+        <b style="color:green;">✅ You will exceed your target by ${-gap:,.2f}!</b>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # --- Charts
 st.subheader("📈 Net Worth Growth")
 fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "NetWorth"], markers=True,
-              title="Balance + Investment + Net Worth Growth")
+              title="Balance + Investments + Net Worth Growth")
 fig.add_hline(y=savings_target, line_dash="dash", line_color="red", annotation_text="Target")
 st.plotly_chart(fig, use_container_width=True)
 
