@@ -8,7 +8,7 @@ import openai
 openai.api_key = st.secrets["openai"]["api_key"]
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
-st.title("💸 Budgeting + Investment Planner (with AI Suggestions + Emoticons)")
+st.title("💸 Budgeting + Investment Planner (with Warnings, Emoticons, AI Suggestions)")
 
 API_KEY = "ZGX1F29EUR1W6A6X"  # Replace with your Alpha Vantage key
 
@@ -92,7 +92,21 @@ st.metric("Expenses", f"${total_exp:,.2f}")
 st.metric("Investments", f"${total_inv:,.2f}")
 st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
-# --- Emoticon for target check
+# --- Warnings
+expense_ratio = total_exp / after_tax_income if after_tax_income > 0 else 0
+if expense_ratio > 0.7:
+    st.warning(f"⚠️ Your expenses are {expense_ratio:.0%} of after-tax income. Consider reducing discretionary spending! 😟")
+else:
+    st.success(f"✅ Your expenses are {expense_ratio:.0%} of after-tax income. Good job managing your costs! 😊")
+
+if stocks + crypto > (bonds + fixed_deposit + real_estate) * 2:
+    st.warning("⚠️ Your portfolio leans heavily toward high-risk investments (stocks + crypto). Consider balancing with safer assets.")
+elif bonds + fixed_deposit + real_estate > (stocks + crypto) * 2:
+    st.info("ℹ️ Your portfolio is very conservative. Consider adding growth-oriented investments for better returns.")
+else:
+    st.success("✅ Your investment mix looks reasonably balanced!")
+
+# --- Target check
 final_net_worth = df['NetWorth'].iloc[-1]
 if final_net_worth >= savings_target:
     st.success(f"🎯 Target achieved! Final net worth: ${final_net_worth:,.2f} 😊")
