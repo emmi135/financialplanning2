@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests 
+import openai
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
 st.title("💸 Budgeting + Investment Planner (with Auto Audio, Tax, Multiple Investments, Warnings & Target)")
