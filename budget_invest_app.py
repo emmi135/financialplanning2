@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests 
-import openai
 openai.api_key = st.secrets["openai"]["api_key"]
-client = openai.OpenAI()
+openai.chat.completions.create(...)
+
 
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
