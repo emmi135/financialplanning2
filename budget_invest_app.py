@@ -4,7 +4,7 @@ import plotly.express as px
 import requests
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
-st.title("💸 Budgeting + Investment Planner (with Tax, Warnings & Savings Target)")
+st.title("💸 Budgeting + Investment Planner (with Tax, Multiple Investments, Warnings & Target)")
 
 API_KEY = "ZGX1F29EUR1W6A6X"
 
@@ -37,6 +37,9 @@ others = st.sidebar.number_input("Other expenses ($)", 0.0, 5000.0, 200.0, 50.0)
 st.sidebar.header("📈 Investments")
 stocks = st.sidebar.number_input("Stocks investment ($)", 0.0, 5000.0, 500.0, 100.0)
 bonds = st.sidebar.number_input("Bonds investment ($)", 0.0, 5000.0, 300.0, 100.0)
+real_estate = st.sidebar.number_input("Real estate ($)", 0.0, 5000.0, 0.0, 100.0)
+crypto = st.sidebar.number_input("Crypto ($)", 0.0, 5000.0, 0.0, 100.0)
+fixed_deposit = st.sidebar.number_input("Fixed deposit ($)", 0.0, 5000.0, 0.0, 100.0)
 
 months = st.sidebar.slider("Projection period (months)", 1, 60, 12)
 savings_target = st.sidebar.number_input("Savings target at end of period ($)", 0.0, 1_000_000.0, 10000.0, 500.0)
@@ -48,10 +51,15 @@ bond_r = get_alpha_vantage_monthly_return("AGG") or 0.003
 st.sidebar.write(f"Stocks monthly return: {stock_r:.2%}")
 st.sidebar.write(f"Bonds monthly return: {bond_r:.2%}")
 
+# --- Fixed returns
+real_r = 0.004
+crypto_r = 0.02
+fd_r = 0.003
+
 # --- Compute
 after_tax_income = income * (1 - tax_rate / 100)
 total_exp = housing + food + transport + utilities + entertainment + others
-total_inv = stocks + bonds
+total_inv = stocks + bonds + real_estate + crypto + fixed_deposit
 net_flow = after_tax_income - total_exp - total_inv
 
 bal = 0
@@ -60,17 +68,23 @@ for m in range(1, months + 1):
     bal += net_flow
     stock_val = stocks * ((1 + stock_r)**m - 1) / stock_r if stock_r else stocks * m
     bond_val = bonds * ((1 + bond_r)**m - 1) / bond_r if bond_r else bonds * m
-    net_worth = bal + stock_val + bond_val
+    real_val = real_estate * ((1 + real_r)**m - 1) / real_r if real_r else real_estate * m
+    crypto_val = crypto * ((1 + crypto_r)**m - 1) / crypto_r if crypto_r else crypto * m
+    fd_val = fixed_deposit * ((1 + fd_r)**m - 1) / fd_r if fd_r else fixed_deposit * m
+    net_worth = bal + stock_val + bond_val + real_val + crypto_val + fd_val
     rows.append({
         "Month": m,
         "Balance": bal,
         "Stocks": stock_val,
         "Bonds": bond_val,
+        "RealEstate": real_val,
+        "Crypto": crypto_val,
+        "FixedDeposit": fd_val,
         "NetWorth": net_worth
     })
 df = pd.DataFrame(rows)
 
-# --- Display summary
+# --- Summary
 st.subheader("📋 Summary")
 col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Income (gross)", f"${income:,.2f}")
@@ -83,11 +97,11 @@ st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 # --- Expense warnings
 expense_warnings = []
 if housing > 0.4 * after_tax_income:
-    expense_warnings.append("🏠 Housing costs exceed 40% of your after-tax income.")
+    expense_warnings.append("🏠 Housing costs exceed 40% of after-tax income.")
 if food > 0.3 * after_tax_income:
-    expense_warnings.append("🍽 Food costs exceed 30% of your after-tax income.")
+    expense_warnings.append("🍽 Food costs exceed 30% of after-tax income.")
 if entertainment > 0.1 * after_tax_income:
-    expense_warnings.append("🎮 Entertainment costs exceed 10% of your after-tax income.")
+    expense_warnings.append("🎮 Entertainment costs exceed 10% of after-tax income.")
 
 if expense_warnings:
     st.subheader("⚠ Expense Warnings")
@@ -96,12 +110,11 @@ if expense_warnings:
 else:
     st.success("✅ Your expenses look balanced!")
 
-# --- Investment mix warnings
+# --- Investment warnings
 inv_warnings = []
 if total_inv > 0:
     stock_pct = stocks / total_inv
     bond_pct = bonds / total_inv
-
     if stock_pct > 0.8:
         inv_warnings.append("📈 Portfolio heavily weighted toward stocks (>80%). Consider diversifying.")
     if bond_pct > 0.8:
@@ -114,17 +127,16 @@ if inv_warnings:
 else:
     st.success("✅ Your investment portfolio looks balanced!")
 
-# --- Emoticon for net cash flow
+# --- Cashflow emote
 if net_flow > 0:
     st.image("https://i.imgur.com/3GvwNBf.png", width=100, caption="✅ You're saving money!")
 else:
     st.image("https://i.imgur.com/8z9uX5j.png", width=100, caption="⚠ You're overspending!")
 
-# --- Savings target check with colored emote box
+# --- Savings target
 st.subheader("🎯 Savings Target Check")
 final_net = df["NetWorth"].iloc[-1]
 gap = savings_target - final_net
-
 st.write(f"Target: ${savings_target:,.2f}")
 st.write(f"Projected Net Worth: ${final_net:,.2f}")
 
@@ -151,8 +163,8 @@ else:
 
 # --- Charts
 st.subheader("📈 Net Worth Growth")
-fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "NetWorth"], markers=True,
-              title="Balance + Investments + Net Worth Growth")
+fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"], markers=True,
+              title="Net Worth & Investments Over Time")
 fig.add_hline(y=savings_target, line_dash="dash", line_color="red", annotation_text="Target")
 st.plotly_chart(fig, use_container_width=True)
 
@@ -170,6 +182,9 @@ st.plotly_chart(px.pie(names=exp_s.index, values=exp_s.values, title="Expense Br
 st.subheader("💼 Investment Breakdown")
 inv_s = pd.Series({
     "Stocks": stocks,
-    "Bonds": bonds
+    "Bonds": bonds,
+    "RealEstate": real_estate,
+    "Crypto": crypto,
+    "FixedDeposit": fixed_deposit
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
