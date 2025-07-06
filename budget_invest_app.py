@@ -8,7 +8,7 @@ import openai
 openai.api_key = st.secrets["openai"]["api_key"]
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
-st.title("💸 Budgeting + Investment Planner (with Warnings, Emoticons, AI Suggestions)")
+st.title("💸 Budgeting + Investment Planner (Detailed Warnings + AI Suggestions)")
 
 API_KEY = "ZGX1F29EUR1W6A6X"  # Replace with your Alpha Vantage key
 
@@ -92,13 +92,32 @@ st.metric("Expenses", f"${total_exp:,.2f}")
 st.metric("Investments", f"${total_inv:,.2f}")
 st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
-# --- Warnings
+# --- Overall Expense Warning
 expense_ratio = total_exp / after_tax_income if after_tax_income > 0 else 0
 if expense_ratio > 0.7:
     st.warning(f"⚠️ Your expenses are {expense_ratio:.0%} of after-tax income. Consider reducing discretionary spending! 😟")
 else:
     st.success(f"✅ Your expenses are {expense_ratio:.0%} of after-tax income. Good job managing your costs! 😊")
 
+# --- Detailed expense category warnings
+exp_categories = {
+    "Housing": housing,
+    "Food": food,
+    "Transport": transport,
+    "Utilities": utilities,
+    "Entertainment": entertainment,
+    "Others": others
+}
+
+for name, amount in exp_categories.items():
+    if after_tax_income > 0:
+        pct = amount / after_tax_income
+        if pct > 0.3:
+            st.warning(f"⚠️ {name} is {pct:.0%} of your after-tax income. Consider reducing!")
+        elif pct > 0.2:
+            st.info(f"ℹ️ {name} is {pct:.0%} of your after-tax income. Monitor this category.")
+
+# --- Investment balance check
 if stocks + crypto > (bonds + fixed_deposit + real_estate) * 2:
     st.warning("⚠️ Your portfolio leans heavily toward high-risk investments (stocks + crypto). Consider balancing with safer assets.")
 elif bonds + fixed_deposit + real_estate > (stocks + crypto) * 2:
@@ -121,14 +140,7 @@ fig.add_hline(y=savings_target, line_dash="dash", line_color="red", annotation_t
 st.plotly_chart(fig, use_container_width=True)
 
 st.subheader("🧾 Expense Breakdown")
-exp_s = pd.Series({
-    "Housing": housing,
-    "Food": food,
-    "Transport": transport,
-    "Utilities": utilities,
-    "Entertainment": entertainment,
-    "Others": others
-})
+exp_s = pd.Series(exp_categories)
 st.plotly_chart(px.pie(names=exp_s.index, values=exp_s.values, title="Expense Breakdown"), use_container_width=True)
 
 st.subheader("💼 Investment Breakdown")
