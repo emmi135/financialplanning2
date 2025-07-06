@@ -4,7 +4,7 @@ import plotly.express as px
 import requests
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
-st.title("💸 Budgeting + Investment Planner (with Audio, Tax, Multiple Investments, Warnings & Target)")
+st.title("💸 Budgeting + Investment Planner (with Auto Audio, Tax, Multiple Investments, Warnings & Target)")
 
 API_KEY = "ZGX1F29EUR1W6A6X"
 
@@ -127,7 +127,7 @@ if inv_warnings:
 else:
     st.success("✅ Your investment portfolio looks balanced!")
 
-# --- Savings target
+# --- Savings target check with audio
 st.subheader("🎯 Savings Target Check")
 final_net = df["NetWorth"].iloc[-1]
 gap = savings_target - final_net
@@ -141,10 +141,12 @@ if gap > 0:
         <img src="https://i.imgur.com/8z9uX5j.png" width="80"><br>
         <b style="color:red;">⚠ You are ${gap:,.2f} below your target.</b>
         </div>
+        <audio autoplay>
+          <source src="https://www.soundjay.com/button/beep-07.mp3" type="audio/mpeg">
+        </audio>
         """,
         unsafe_allow_html=True
     )
-    st.audio("https://www.soundjay.com/button/beep-07.mp3")
 else:
     st.markdown(
         f"""
@@ -152,10 +154,12 @@ else:
         <img src="https://i.imgur.com/3GvwNBf.png" width="80"><br>
         <b style="color:green;">✅ You will exceed your target by ${-gap:,.2f}!</b>
         </div>
+        <audio autoplay>
+          <source src="https://www.soundjay.com/button/button-3.mp3" type="audio/mpeg">
+        </audio>
         """,
         unsafe_allow_html=True
     )
-    st.audio("https://www.soundjay.com/button/button-3.mp3")
 
 # --- Charts
 st.subheader("📈 Net Worth Growth")
