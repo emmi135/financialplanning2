@@ -4,7 +4,7 @@ import plotly.express as px
 import requests
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
-st.title("💸 Budgeting + Investment Planner (with Tax, Multiple Investments, Warnings & Target)")
+st.title("💸 Budgeting + Investment Planner (with Audio, Tax, Multiple Investments, Warnings & Target)")
 
 API_KEY = "ZGX1F29EUR1W6A6X"
 
@@ -127,12 +127,6 @@ if inv_warnings:
 else:
     st.success("✅ Your investment portfolio looks balanced!")
 
-# --- Cashflow emote
-if net_flow > 0:
-    st.image("https://i.imgur.com/3GvwNBf.png", width=100, caption="✅ You're saving money!")
-else:
-    st.image("https://i.imgur.com/8z9uX5j.png", width=100, caption="⚠ You're overspending!")
-
 # --- Savings target
 st.subheader("🎯 Savings Target Check")
 final_net = df["NetWorth"].iloc[-1]
@@ -150,6 +144,7 @@ if gap > 0:
         """,
         unsafe_allow_html=True
     )
+    st.audio("https://www.soundjay.com/button/beep-07.mp3")
 else:
     st.markdown(
         f"""
@@ -160,6 +155,7 @@ else:
         """,
         unsafe_allow_html=True
     )
+    st.audio("https://www.soundjay.com/button/button-3.mp3")
 
 # --- Charts
 st.subheader("📈 Net Worth Growth")
