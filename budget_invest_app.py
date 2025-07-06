@@ -4,7 +4,7 @@ import plotly.express as px
 import requests
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
-st.title("💸 Budgeting + Investment Planner (with Warnings & Savings Target)")
+st.title("💸 Budgeting + Investment Planner (with Tax, Warnings & Savings Target)")
 
 API_KEY = "ZGX1F29EUR1W6A6X"
 
@@ -23,7 +23,8 @@ def get_alpha_vantage_monthly_return(symbol):
 
 # --- Inputs
 st.sidebar.header("📊 Monthly Income")
-income = st.sidebar.number_input("Monthly income ($)", min_value=0.0, value=5000.0, step=100.0)
+income = st.sidebar.number_input("Monthly income (before tax, $)", min_value=0.0, value=5000.0, step=100.0)
+tax_rate = st.sidebar.slider("Tax rate (%)", 0, 50, 20)
 
 st.sidebar.header("📌 Expenses")
 housing = st.sidebar.number_input("Housing / Rent ($)", 0.0, 5000.0, 1200.0, 50.0)
@@ -48,9 +49,10 @@ st.sidebar.write(f"Stocks monthly return: {stock_r:.2%}")
 st.sidebar.write(f"Bonds monthly return: {bond_r:.2%}")
 
 # --- Compute
+after_tax_income = income * (1 - tax_rate / 100)
 total_exp = housing + food + transport + utilities + entertainment + others
 total_inv = stocks + bonds
-net_flow = income - total_exp - total_inv
+net_flow = after_tax_income - total_exp - total_inv
 
 bal = 0
 rows = []
@@ -70,20 +72,22 @@ df = pd.DataFrame(rows)
 
 # --- Display summary
 st.subheader("📋 Summary")
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Income", f"${income:,.2f}")
-col2.metric("Expenses", f"${total_exp:,.2f}")
-col3.metric("Investments", f"${total_inv:,.2f}")
-col4.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
+col1, col2, col3, col4, col5 = st.columns(5)
+col1.metric("Income (gross)", f"${income:,.2f}")
+col2.metric("Tax rate", f"{tax_rate}%")
+col3.metric("After tax income", f"${after_tax_income:,.2f}")
+col4.metric("Expenses", f"${total_exp:,.2f}")
+col5.metric("Investments", f"${total_inv:,.2f}")
+st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
 # --- Expense warnings
 expense_warnings = []
-if housing > 0.4 * income:
-    expense_warnings.append("🏠 Housing costs exceed 40% of your income.")
-if food > 0.3 * income:
-    expense_warnings.append("🍽 Food costs exceed 30% of your income.")
-if entertainment > 0.1 * income:
-    expense_warnings.append("🎮 Entertainment costs exceed 10% of your income.")
+if housing > 0.4 * after_tax_income:
+    expense_warnings.append("🏠 Housing costs exceed 40% of your after-tax income.")
+if food > 0.3 * after_tax_income:
+    expense_warnings.append("🍽 Food costs exceed 30% of your after-tax income.")
+if entertainment > 0.1 * after_tax_income:
+    expense_warnings.append("🎮 Entertainment costs exceed 10% of your after-tax income.")
 
 if expense_warnings:
     st.subheader("⚠ Expense Warnings")
