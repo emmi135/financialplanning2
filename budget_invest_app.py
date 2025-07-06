@@ -1,17 +1,16 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import requests 
+import requests
+import openai
+
+# ✅ Set API key securely from Streamlit Cloud secrets
 openai.api_key = st.secrets["openai"]["api_key"]
-openai.chat.completions.create(...)
-
-
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
-st.title("💸 Budgeting + Investment Planner (with Auto Audio, Tax, Multiple Investments, Warnings & Target)")
+st.title("💸 Budgeting + Investment Planner (with AI Suggestions, Tax, Investments, Warnings & Target)")
 
-API_KEY = "ZGX1F29EUR1W6A6X"
-
+API_KEY = "ZGX1F29EUR1W6A6X"  # Example Alpha Vantage key for stock/bond data
 
 def get_alpha_vantage_monthly_return(symbol):
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
@@ -61,7 +60,7 @@ real_r = 0.004
 crypto_r = 0.02
 fd_r = 0.003
 
-# --- Compute
+# --- Compute balances
 after_tax_income = income * (1 - tax_rate / 100)
 total_exp = housing + food + transport + utilities + entertainment + others
 total_inv = stocks + bonds + real_estate + crypto + fixed_deposit
@@ -89,82 +88,14 @@ for m in range(1, months + 1):
     })
 df = pd.DataFrame(rows)
 
-# --- Summary
+# --- Summary display
 st.subheader("📋 Summary")
-col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("Income (gross)", f"${income:,.2f}")
-col2.metric("Tax rate", f"{tax_rate}%")
-col3.metric("After tax income", f"${after_tax_income:,.2f}")
-col4.metric("Expenses", f"${total_exp:,.2f}")
-col5.metric("Investments", f"${total_inv:,.2f}")
+st.metric("Income (gross)", f"${income:,.2f}")
+st.metric("Tax rate", f"{tax_rate}%")
+st.metric("After tax income", f"${after_tax_income:,.2f}")
+st.metric("Expenses", f"${total_exp:,.2f}")
+st.metric("Investments", f"${total_inv:,.2f}")
 st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
-
-# --- Expense warnings
-expense_warnings = []
-if housing > 0.4 * after_tax_income:
-    expense_warnings.append("🏠 Housing costs exceed 40% of after-tax income.")
-if food > 0.3 * after_tax_income:
-    expense_warnings.append("🍽 Food costs exceed 30% of after-tax income.")
-if entertainment > 0.1 * after_tax_income:
-    expense_warnings.append("🎮 Entertainment costs exceed 10% of after-tax income.")
-
-if expense_warnings:
-    st.subheader("⚠ Expense Warnings")
-    for warn in expense_warnings:
-        st.warning(warn)
-else:
-    st.success("✅ Your expenses look balanced!")
-
-# --- Investment warnings
-inv_warnings = []
-if total_inv > 0:
-    stock_pct = stocks / total_inv
-    bond_pct = bonds / total_inv
-    if stock_pct > 0.8:
-        inv_warnings.append("📈 Portfolio heavily weighted toward stocks (>80%). Consider diversifying.")
-    if bond_pct > 0.8:
-        inv_warnings.append("💵 Portfolio heavily weighted toward bonds (>80%). Consider balancing.")
-
-if inv_warnings:
-    st.subheader("⚠ Investment Mix Warnings")
-    for warn in inv_warnings:
-        st.warning(warn)
-else:
-    st.success("✅ Your investment portfolio looks balanced!")
-
-# --- Savings target check with audio
-st.subheader("🎯 Savings Target Check")
-final_net = df["NetWorth"].iloc[-1]
-gap = savings_target - final_net
-st.write(f"Target: ${savings_target:,.2f}")
-st.write(f"Projected Net Worth: ${final_net:,.2f}")
-
-if gap > 0:
-    st.markdown(
-        f"""
-        <div style="border: 3px solid red; padding:10px; display: inline-block; border-radius:10px;">
-        <img src="https://i.imgur.com/8z9uX5j.png" width="80"><br>
-        <b style="color:red;">⚠ You are ${gap:,.2f} below your target.</b>
-        </div>
-        <audio autoplay>
-          <source src="https://www.soundjay.com/button/beep-07.mp3" type="audio/mpeg">
-        </audio>
-        """,
-        unsafe_allow_html=True
-    )
-else:
-    st.markdown(
-        f"""
-        <div style="border: 3px solid green; padding:10px; display: inline-block; border-radius:10px;">
-        <img src="https://i.imgur.com/3GvwNBf.png" width="80"><br>
-        <b style="color:green;">✅ You will exceed your target by ${-gap:,.2f}!</b>
-        </div>
-        <audio autoplay>
-          <source src="https://www.soundjay.com/button/button-3.mp3" type="audio/mpeg">
-        </audio>
-        """,
-        unsafe_allow_html=True
-    )
 
 # --- Charts
 st.subheader("📈 Net Worth Growth")
@@ -194,6 +125,7 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
+# --- AI suggestions button
 if st.button("Generate AI Financial Suggestions"):
     prompt = f"""
     I have the following financial data:
@@ -209,14 +141,13 @@ if st.button("Generate AI Financial Suggestions"):
     """
     with st.spinner("Generating AI summary..."):
         try:
-            response = openai.ChatCompletion.create(
+            response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=200
             )
-            ai_suggestion = response['choices'][0]['message']['content']
+            ai_suggestion = response.choices[0].message.content
             st.subheader("🤖 ChatGPT Financial Summary")
             st.write(ai_suggestion)
         except Exception as e:
             st.error(f"OpenAI API error: {e}")
-
