@@ -4,21 +4,13 @@ import plotly.express as px
 import requests
 import openai
 
+# ✅ Set API key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# When you want to generate suggestions:
-response = openai.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[{"role": "user", "content": prompt}],
-    max_tokens=200
-)
-ai_suggestion = response.choices[0].message.content
-
-
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
-st.title("💸 Budgeting + Investment Planner (with AI Suggestions, Tax, Investments, Warnings & Target)")
+st.title("💸 Budgeting + Investment Planner (with AI Suggestions)")
 
-API_KEY = "ZGX1F29EUR1W6A6X"  # Example Alpha Vantage key for stock/bond data
+API_KEY = "ZGX1F29EUR1W6A6X"
 
 def get_alpha_vantage_monthly_return(symbol):
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
@@ -68,7 +60,7 @@ real_r = 0.004
 crypto_r = 0.02
 fd_r = 0.003
 
-# --- Compute balances
+# --- Compute
 after_tax_income = income * (1 - tax_rate / 100)
 total_exp = housing + food + transport + utilities + entertainment + others
 total_inv = stocks + bonds + real_estate + crypto + fixed_deposit
@@ -96,7 +88,7 @@ for m in range(1, months + 1):
     })
 df = pd.DataFrame(rows)
 
-# --- Summary display
+# --- Summary
 st.subheader("📋 Summary")
 st.metric("Income (gross)", f"${income:,.2f}")
 st.metric("Tax rate", f"{tax_rate}%")
@@ -133,7 +125,7 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
-# --- AI suggestions button
+# --- AI Suggestions
 if st.button("Generate AI Financial Suggestions"):
     prompt = f"""
     I have the following financial data:
