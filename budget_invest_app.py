@@ -189,3 +189,30 @@ inv_s = pd.Series({
     "FixedDeposit": fixed_deposit
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
+
+if st.button("Generate AI Financial Suggestions"):
+    prompt = f"""
+    I have the following financial data:
+    - Gross income: ${income}
+    - Tax rate: {tax_rate}%
+    - After-tax income: ${after_tax_income}
+    - Expenses: ${total_exp}
+    - Investments: ${total_inv}
+    - Net cash flow: ${net_flow}/mo
+    - Savings target: ${savings_target}
+    - Projected net worth: ${df['NetWorth'].iloc[-1]}
+    Please provide a friendly financial summary and advice.
+    """
+    with st.spinner("Generating AI summary..."):
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200
+            )
+            ai_suggestion = response['choices'][0]['message']['content']
+            st.subheader("🤖 ChatGPT Financial Summary")
+            st.write(ai_suggestion)
+        except Exception as e:
+            st.error(f"OpenAI API error: {e}")
+
