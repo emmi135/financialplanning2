@@ -7,6 +7,7 @@ st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
 st.title("💸 Budgeting + Investment Planner (with Auto Audio, Tax, Multiple Investments, Warnings & Target)")
 
 API_KEY = "ZGX1F29EUR1W6A6X"
+openai.api_key = st.secrets["openai"]["api_key"]
 
 def get_alpha_vantage_monthly_return(symbol):
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
