@@ -6,11 +6,13 @@ import google.generativeai as genai
 import openai
 from huggingface_hub import InferenceClient
 
+hf_client = InferenceClient(token=st.secrets["huggingface"]["api_key"])
+
 # ✅ Configure API keys
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 openai.api_key = st.secrets["openrouter"]["api_key"]
 openai.api_base = "https://openrouter.ai/v1"
-hf_client = InferenceClient(token=st.secrets["huggingface"]["api_key"])
+
 
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
 st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
