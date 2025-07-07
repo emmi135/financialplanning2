@@ -160,11 +160,12 @@ if st.button("Generate AI Suggestions (Multi-LLM)"):
 
     with st.spinner("Hugging Face generating..."):
         try:
-            hf_resp = hf_client.conversational(
-                model="fireworks-ai/your-model",
-                inputs=prompt
-            )
-            st.subheader("🤖 Hugging Face Suggestion")
-            st.write(hf_resp.generated_text)
+ hf_resp = hf_client.text_generation(
+    model="tiiuae/falcon-7b-instruct",
+    prompt=prompt,
+    max_new_tokens=300
+)
+st.subheader("🤖 Hugging Face Suggestion")
+st.write(hf_resp)
         except Exception as e:
             st.error(f"Hugging Face error: {e}")
