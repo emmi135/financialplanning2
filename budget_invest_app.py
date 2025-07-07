@@ -173,4 +173,4 @@ if st.button("Generate AI Suggestions (Multi-LLM)", key="generate_button"):
             st.subheader("🤖 Hugging Face Suggestion")
             st.write(hf_resp)
         except Exception as e:
-            st.error(f"Hugging Face error: {e}") this is the right code
+            st.error(f"Hugging Face error: {e}")  
