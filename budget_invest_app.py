@@ -160,10 +160,10 @@ if st.button("Generate AI Suggestions (Multi-LLM)"):
 
     with st.spinner("Hugging Face generating..."):
         try:
-            hf_resp = hf_client.text_generation(
+            hf_resp = "deepseek-ai/DeepSeek-LLM-7B"
                 model="tiiuae/falcon-7b-instruct",
-                prompt=prompt,
-                max_new_tokens=300
+                "Say hello"
+                max_new_tokens=50
             )
             st.subheader("🤖 Hugging Face Suggestion")
             st.write(hf_resp)
