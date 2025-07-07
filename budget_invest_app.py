@@ -126,7 +126,18 @@ st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment
 
 # Multi-LLM AI Suggestions
 if st.button("Generate AI Suggestions (Multi-LLM)"):
-    prompt = f"""Your dynamic prompt here"""
+    prompt = f"""
+    Financial summary:
+    Gross income: ${income}
+    Tax rate: {tax_rate}%
+    After-tax income: ${after_tax_income}
+    Expenses: ${total_exp}
+    Investments: ${total_inv}
+    Net cash flow: ${net_flow}/mo
+    Savings target: ${savings_target}
+    Projected net worth: ${df['NetWorth'].iloc[-1]}
+    Provide advice on expense control, investment balance, and achieving target.
+    """
 
     with st.spinner("Gemini generating..."):
         try:
@@ -148,15 +159,16 @@ if st.button("Generate AI Suggestions (Multi-LLM)"):
             st.error(f"OpenRouter error: {e}")
 
     with st.spinner("Hugging Face generating..."):
-    try:
-        hf_resp = hf_client.text_generation(
-            model="tiiuae/falcon-7b-instruct",
-            prompt=prompt,
-            max_new_tokens=300
-        )
-        st.subheader("🤖 Hugging Face Suggestion")
-        st.write("Raw response:", hf_resp)  # show raw output for debugging
-    except Exception as e:
-        st.error(f"Hugging Face error: {e}")
+        try:
+            hf_resp = hf_client.text_generation(
+                model="tiiuae/falcon-7b-instruct",
+                prompt=prompt,
+                max_new_tokens=300
+            )
+            st.subheader("🤖 Hugging Face Suggestion")
+            st.write(hf_resp)
+        except Exception as e:
+            st.error(f"Hugging Face error: {e}")
+
 
 
