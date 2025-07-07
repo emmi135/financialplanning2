@@ -5,7 +5,6 @@ import requests
 import google.generativeai as genai
 import openai
 from huggingface_hub import InferenceClient
-import json
 
 # Configure API keys
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
@@ -154,10 +153,6 @@ if st.button("Generate AI Suggestions (Multi-LLM)"):
                 model="deepseek/deepseek-r1:free",
                 messages=[{"role": "user", "content": prompt}]
             )
-            # If string, parse
-            if isinstance(or_resp, str):
-                or_resp = json.loads(or_resp)
-
             st.subheader("🤖 OpenRouter Suggestion")
             st.write(or_resp["choices"][0]["message"]["content"])
         except Exception as e:
