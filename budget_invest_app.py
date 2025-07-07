@@ -9,7 +9,7 @@ from huggingface_hub import InferenceClient
 # Configure API keys
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 openai.api_key = st.secrets["openrouter"]["api_key"]
-openai.api_base = "https://openrouter.ai/v1"
+openai.base_url = "https://openrouter.ai/api/v1"
 hf_client = InferenceClient(token=st.secrets["huggingface"]["api_key"])
 
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
@@ -149,7 +149,7 @@ if st.button("Generate AI Suggestions (Multi-LLM)"):
 
     with st.spinner("OpenRouter generating..."):
         try:
-            or_resp = openai.ChatCompletion.create(
+            or_resp = openai.chat.completions.create(
                 model="deepseek/deepseek-r1:free",
                 messages=[{"role": "user", "content": prompt}]
             )
