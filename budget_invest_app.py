@@ -3,9 +3,11 @@ import pandas as pd
 import plotly.express as px
 import requests
 import google.generativeai as genai
+from huggingface_hub import InferenceClient
 
 # Configure API keys
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
+hf_client = InferenceClient(token=st.secrets["huggingface"]["api_key"])
 OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
 
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
@@ -26,7 +28,7 @@ def get_alpha_vantage_monthly_return(symbol):
     monthly_return = (closes[0] - closes[1]) / closes[1]
     return monthly_return
 
-# Inputs
+# Inputs with unique keys
 st.sidebar.header("📊 Monthly Income")
 income = st.sidebar.number_input("Monthly income (before tax, $)", min_value=0.0, value=5000.0, step=100.0, key="income_input")
 tax_rate = st.sidebar.slider("Tax rate (%)", 0, 50, 20, key="tax_slider")
@@ -120,51 +122,55 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
-# Prompt
-prompt = f"""
-Financial summary:
-Gross income: ${income}
-Tax rate: {tax_rate}%
-After-tax income: ${after_tax_income}
-Expenses: ${total_exp}
-Investments: ${total_inv}
-Net cash flow: ${net_flow}/mo
-Savings target: ${savings_target}
-Projected net worth: ${df['NetWorth'].iloc[-1]}
-Provide advice on expense control, investment balance, and achieving target.
-"""
+# Multi-LLM AI Suggestions
+if st.button("Generate AI Suggestions (Multi-LLM)", key="generate_button"):
+    prompt = f"""
+    Financial summary:
+    Gross income: ${income}
+    Tax rate: {tax_rate}%
+    After-tax income: ${after_tax_income}
+    Expenses: ${total_exp}
+    Investments: ${total_inv}
+    Net cash flow: ${net_flow}/mo
+    Savings target: ${savings_target}
+    Projected net worth: ${df['NetWorth'].iloc[-1]}
+    Provide advice on expense control, investment balance, and achieving target.
+    """
 
-# Columns for side-by-side output
-col1, col2 = st.columns(2)
+    with st.spinner("Gemini generating..."):
+        try:
+            gemini_resp = genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)
+            st.subheader("🤖 Gemini Suggestion")
+            st.write(gemini_resp.text)
+        except Exception as e:
+            st.error(f"Gemini error: {e}")
 
-# Gemini button
-if col1.button("Generate Gemini Suggestion"):
-    with col1:
-        with st.spinner("Gemini generating..."):
-            try:
-                gemini_resp = genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)
-                st.subheader("🤖 Gemini Suggestion")
-                st.write(gemini_resp.text)
-            except Exception as e:
-                st.error(f"Gemini error: {e}")
+    with st.spinner("OpenRouter generating..."):
+        try:
+            headers = {
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "deepseek/deepseek-r1:free",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+            resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            st.subheader("🤖 OpenRouter Suggestion")
+            st.write(data["choices"][0]["message"]["content"])
+        except Exception as e:
+            st.error(f"OpenRouter error: {e}")
 
-# DeepSeek button
-if col2.button("Generate DeepSeek Suggestion"):
-    with col2:
-        with st.spinner("DeepSeek generating..."):
-            try:
-                headers = {
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "deepseek-r1",  # Replace with current valid model if needed
-                    "messages": [{"role": "user", "content": prompt}]
-                }
-                resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
-                resp.raise_for_status()
-                data = resp.json()
-                st.subheader("🤖 OpenRouter Suggestion (DeepSeek R1)")
-                st.write(data["choices"][0]["message"]["content"])
-            except Exception as e:
-                st.error(f"OpenRouter error: {e}")
+    with st.spinner("Hugging Face generating..."):
+        try:
+            hf_resp = hf_client.text_generation(
+                model="tiiuae/falcon-7b-instruct",
+                prompt=prompt,
+                max_new_tokens=300
+            )
+            st.subheader("🤖 Hugging Face Suggestion")
+            st.write(hf_resp)
+        except Exception as e:
+            st.error(f"Hugging Face error: {e}") this is the right code
