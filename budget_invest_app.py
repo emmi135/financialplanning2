@@ -13,7 +13,7 @@ openai.api_base = "https://openrouter.ai/v1"
 hf_client = InferenceClient(token=st.secrets["huggingface"]["api_key"])
 
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
-st.title("💸 Budgeting + Investment Planner (with Multi-LLM AI Suggestions)")
+st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
 
 API_KEY = st.secrets["alpha_vantage"]["api_key"]
 
@@ -160,15 +160,12 @@ if st.button("Generate AI Suggestions (Multi-LLM)"):
 
     with st.spinner("Hugging Face generating..."):
         try:
-            hf_resp = "deepseek-ai/DeepSeek-LLM-7B"
+            hf_resp = hf_client.text_generation(
                 model="tiiuae/falcon-7b-instruct",
-                "Say hello"
-                max_new_tokens=50
+                prompt=prompt,
+                max_new_tokens=300
             )
             st.subheader("🤖 Hugging Face Suggestion")
             st.write(hf_resp)
         except Exception as e:
             st.error(f"Hugging Face error: {e}")
-
-
-
