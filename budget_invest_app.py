@@ -150,16 +150,11 @@ if st.button("Generate AI Suggestions (Multi-LLM)", key="generate_button"):
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": "deepseek-llm:free",  # Updated to valid model
+                "model": "deepseek-llm:free",
                 "messages": [{"role": "user", "content": prompt}]
             }
 
-            # Debug info
-            st.write("✅ Payload sent to OpenRouter:", payload)
-            st.write("✅ Headers sent to OpenRouter:", headers)
-
             resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
-            st.write("✅ Raw response text:", resp.text)
             resp.raise_for_status()
             data = resp.json()
             st.subheader("🤖 OpenRouter Suggestion (DeepSeek LLM Free)")
