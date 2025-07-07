@@ -150,14 +150,14 @@ if st.button("Generate AI Suggestions (Multi-LLM)", key="generate_button"):
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": "deepseek-r1-0528:free",
+                "model": "deepseek-r1",
                 "messages": [{"role": "user", "content": prompt}]
             }
 
             resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
-            st.subheader("🤖 OpenRouter Suggestion (DeepSeek R1-0528 Free)")
+            st.subheader("🤖 OpenRouter Suggestion (DeepSeek R1)")
             st.write(data["choices"][0]["message"]["content"])
         except Exception as e:
             st.error(f"OpenRouter error: {e}")
