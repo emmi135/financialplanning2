@@ -3,3 +3,5 @@ pandas
 plotly
 requests
 google-generativeai
+openai
+huggingface-hub
