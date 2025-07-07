@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests
-import openai
+import google.generativeai as genai
 
-# ✅ Set API key securely
-openai.api_key = st.secrets["openai"]["api_key"]
+# ✅ Set Gemini API key securely
+genai.configure(api_key=st.secrets["gemini"]["api_key"])
 
 st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
 st.title("💸 Budgeting + Investment Planner (Detailed Warnings + AI Suggestions)")
@@ -153,7 +153,7 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
-# --- AI suggestions
+# --- AI suggestions using Gemini
 if st.button("Generate AI Financial Suggestions"):
     prompt = f"""
     I have the following financial data:
@@ -169,13 +169,9 @@ if st.button("Generate AI Financial Suggestions"):
     """
     with st.spinner("Generating AI summary..."):
         try:
-            response = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=300
-            )
-            ai_suggestion = response.choices[0].message.content
-            st.subheader("🤖 ChatGPT Financial Summary")
-            st.write(ai_suggestion)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt)
+            st.subheader("🤖 Gemini Financial Summary")
+            st.write(response.text)
         except Exception as e:
-            st.error(f"OpenAI API error: {e}")
+            st.error(f"Gemini API error: {e}")
