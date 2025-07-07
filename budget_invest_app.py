@@ -134,21 +134,24 @@ Projected net worth: ${df['NetWorth'].iloc[-1]}
 Provide advice on expense control, investment balance, and achieving target.
 """
 
-# Side-by-side columns
+# Session state to store outputs
+if "gemini_output" not in st.session_state:
+    st.session_state.gemini_output = ""
+if "deepseek_output" not in st.session_state:
+    st.session_state.deepseek_output = ""
+
+# Columns
 col1, col2 = st.columns(2)
 
-# Gemini button + output
 if col1.button("Generate Gemini Suggestion"):
     with col1:
         with st.spinner("Gemini generating..."):
             try:
                 gemini_resp = genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)
-                st.subheader("🤖 Gemini Suggestion")
-                st.write(gemini_resp.text)
+                st.session_state.gemini_output = gemini_resp.text
             except Exception as e:
-                st.error(f"Gemini error: {e}")
+                st.session_state.gemini_output = f"Gemini error: {e}"
 
-# DeepSeek button + output
 if col2.button("Generate DeepSeek Suggestion"):
     with col2:
         with st.spinner("DeepSeek generating..."):
@@ -158,13 +161,23 @@ if col2.button("Generate DeepSeek Suggestion"):
                     "Content-Type": "application/json"
                 }
                 payload = {
-                    "model": "deepseek/deepseek-r1:free",  # Replace if needed
+                    "model": "deepseek/deepseek-r1:free",  # Update if needed
                     "messages": [{"role": "user", "content": prompt}]
                 }
                 resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
                 resp.raise_for_status()
                 data = resp.json()
-                st.subheader("🤖 DeepSeek Suggestion")
-                st.write(data["choices"][0]["message"]["content"])
+                st.session_state.deepseek_output = data["choices"][0]["message"]["content"]
             except Exception as e:
-                st.error(f"OpenRouter error: {e}")
+                st.session_state.deepseek_output = f"OpenRouter error: {e}"
+
+# Display outputs
+with col1:
+    if st.session_state.gemini_output:
+        st.subheader("🤖 Gemini Suggestion")
+        st.write(st.session_state.gemini_output)
+
+with col2:
+    if st.session_state.deepseek_output:
+        st.subheader("🤖 DeepSeek Suggestion")
+        st.write(st.session_state.deepseek_output)
