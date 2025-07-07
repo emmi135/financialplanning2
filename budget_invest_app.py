@@ -159,12 +159,11 @@ if st.button("Generate AI Suggestions (Multi-LLM)"):
 
     with st.spinner("Hugging Face generating..."):
         try:
-            hf_resp = hf_client.text_generation(
-                model="deepseek-ai/DeepSeek-V3-0324",
-                prompt=prompt,
-                max_new_tokens=300
-            )
-            st.subheader("🤖 Hugging Face Suggestion")
-            st.write(hf_resp)
+      hf_resp = hf_client.conversational(
+    model="fireworks-ai/your-model",  # or whatever model you're using
+    inputs=prompt
+)
+st.subheader("🤖 Hugging Face Suggestion")
+st.write(hf_resp.generated_text)
         except Exception as e:
             st.error(f"Hugging Face error: {e}")
