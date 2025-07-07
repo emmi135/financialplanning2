@@ -4,8 +4,9 @@ import plotly.express as px
 import requests
 import google.generativeai as genai
 
-CHAT_API_ID = st.secrets["CHAT_API_ID"]
-BOTPRESS_TOKEN = st.secrets["BOTPRESS_TOKEN"]
+CHAT_API_ID = "your_real_chat_api_id"
+BOTPRESS_TOKEN = "your_real_botpress_token"
+
 
 # Configure API keys
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
