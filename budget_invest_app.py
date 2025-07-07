@@ -98,7 +98,8 @@ st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
 # Charts
 st.subheader("📈 Net Worth Growth")
-fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"], markers=True, title="Net Worth & Investments Over Time")
+fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"],
+              markers=True, title="Net Worth & Investments Over Time")
 fig.add_hline(y=savings_target, line_dash="dash", line_color="red", annotation_text="Target")
 st.plotly_chart(fig, use_container_width=True)
 
@@ -159,11 +160,11 @@ if st.button("Generate AI Suggestions (Multi-LLM)"):
 
     with st.spinner("Hugging Face generating..."):
         try:
-      hf_resp = hf_client.conversational(
-    model="fireworks-ai/your-model",  # or whatever model you're using
-    inputs=prompt
-)
-st.subheader("🤖 Hugging Face Suggestion")
-st.write(hf_resp.generated_text)
+            hf_resp = hf_client.conversational(
+                model="fireworks-ai/your-model",
+                inputs=prompt
+            )
+            st.subheader("🤖 Hugging Face Suggestion")
+            st.write(hf_resp.generated_text)
         except Exception as e:
             st.error(f"Hugging Face error: {e}")
