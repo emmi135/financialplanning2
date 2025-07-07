@@ -1,18 +1,21 @@
-
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests
 import google.generativeai as genai
+import openai
+from huggingface_hub import InferenceClient
 
-# ✅ Set Gemini API key securely
+# ✅ Configure API keys
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
+openai.api_key = st.secrets["openrouter"]["api_key"]
+openai.api_base = "https://openrouter.ai/v1"
+hf_client = InferenceClient(token=st.secrets["huggingface"]["api_key"])
 
-st.set_page_config(page_title="💸 Budget & Investment App", layout="wide")
-st.title("💸 Budgeting + Investment Planner (Detailed Warnings + AI Suggestions)")
+st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
+st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
 
-API_KEY = "ZGX1F29EUR1W6A6X"  # Replace with your Alpha Vantage key
+API_KEY = st.secrets["alpha_vantage"]["api_key"]
 
 def get_alpha_vantage_monthly_return(symbol):
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
@@ -88,92 +91,52 @@ df = pd.DataFrame(rows)
 # --- Summary
 st.subheader("📋 Summary")
 st.metric("Income (gross)", f"${income:,.2f}")
-st.metric("Tax rate", f"{tax_rate}%")
 st.metric("After tax income", f"${after_tax_income:,.2f}")
 st.metric("Expenses", f"${total_exp:,.2f}")
 st.metric("Investments", f"${total_inv:,.2f}")
 st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
-# --- Overall Expense Warning
-expense_ratio = total_exp / after_tax_income if after_tax_income > 0 else 0
-if expense_ratio > 0.7:
-    st.warning(f"⚠️ Your expenses are {expense_ratio:.0%} of after-tax income. Consider reducing discretionary spending! 😟")
-else:
-    st.success(f"✅ Your expenses are {expense_ratio:.0%} of after-tax income. Good job managing your costs! 😊")
-
-# --- Detailed expense category warnings
-exp_categories = {
-    "Housing": housing,
-    "Food": food,
-    "Transport": transport,
-    "Utilities": utilities,
-    "Entertainment": entertainment,
-    "Others": others
-}
-
-for name, amount in exp_categories.items():
-    if after_tax_income > 0:
-        pct = amount / after_tax_income
-        if pct > 0.3:
-            st.warning(f"⚠️ {name} is {pct:.0%} of your after-tax income. Consider reducing!")
-        elif pct > 0.2:
-            st.info(f"ℹ️ {name} is {pct:.0%} of your after-tax income. Monitor this category.")
-
-# --- Investment balance check
-if stocks + crypto > (bonds + fixed_deposit + real_estate) * 2:
-    st.warning("⚠️ Your portfolio leans heavily toward high-risk investments (stocks + crypto). Consider balancing with safer assets.")
-elif bonds + fixed_deposit + real_estate > (stocks + crypto) * 2:
-    st.info("ℹ️ Your portfolio is very conservative. Consider adding growth-oriented investments for better returns.")
-else:
-    st.success("✅ Your investment mix looks reasonably balanced!")
-
-# --- Target check
-final_net_worth = df['NetWorth'].iloc[-1]
-if final_net_worth >= savings_target:
-    st.success(f"🎯 Target achieved! Final net worth: ${final_net_worth:,.2f} 😊")
-else:
-    st.warning(f"⚠ Below target. Final net worth: ${final_net_worth:,.2f} 😟")
-
-# --- Charts
-st.subheader("📈 Net Worth Growth")
-fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"], markers=True,
-              title="Net Worth & Investments Over Time")
-fig.add_hline(y=savings_target, line_dash="dash", line_color="red", annotation_text="Target")
-st.plotly_chart(fig, use_container_width=True)
-
-st.subheader("🧾 Expense Breakdown")
-exp_s = pd.Series(exp_categories)
-st.plotly_chart(px.pie(names=exp_s.index, values=exp_s.values, title="Expense Breakdown"), use_container_width=True)
-
-st.subheader("💼 Investment Breakdown")
-inv_s = pd.Series({
-    "Stocks": stocks,
-    "Bonds": bonds,
-    "RealEstate": real_estate,
-    "Crypto": crypto,
-    "FixedDeposit": fixed_deposit
-})
-st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
-
-# --- AI suggestions using Gemini
-if st.button("Generate AI Financial Suggestions"):
+# --- AI multi-LLM suggestions
+if st.button("Generate AI Suggestions (Multi-LLM)"):
     prompt = f"""
-    I have the following financial data:
-    - Gross income: ${income}
-    - Tax rate: {tax_rate}%
-    - After-tax income: ${after_tax_income}
-    - Expenses: ${total_exp}
-    - Investments: ${total_inv}
-    - Net cash flow: ${net_flow}/mo
-    - Savings target: ${savings_target}
-    - Projected net worth: ${final_net_worth}
-    Please provide advice on whether expenses are too high, investments are balanced, and how to reach my target.
+    Financial summary:
+    Gross income: ${income}
+    Tax rate: {tax_rate}%
+    After-tax income: ${after_tax_income}
+    Expenses: ${total_exp}
+    Investments: ${total_inv}
+    Net cash flow: ${net_flow}/mo
+    Savings target: ${savings_target}
+    Projected net worth: ${df['NetWorth'].iloc[-1]}
+    Provide advice on expense control, investment balance, and target achievement.
     """
-    with st.spinner("Generating AI summary..."):
+    with st.spinner("Gemini generating..."):
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
-            response = model.generate_content(prompt)
-            st.subheader("🤖 Gemini Financial Summary")
-            st.write(response.text)
+            gemini_resp = model.generate_content(prompt)
+            st.subheader("🤖 Gemini Suggestion")
+            st.write(gemini_resp.text)
         except Exception as e:
-            st.error(f"Gemini API error: {e}")
+            st.error(f"Gemini error: {e}")
+    
+    with st.spinner("OpenRouter generating..."):
+        try:
+            or_resp = openai.ChatCompletion.create(
+                model="deepseek/deepseek-r1:free",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            st.subheader("🤖 OpenRouter Suggestion")
+            st.write(or_resp.choices[0].message.content)
+        except Exception as e:
+            st.error(f"OpenRouter error: {e}")
+    
+    with st.spinner("Hugging Face generating..."):
+        try:
+            hf_resp = hf_client.chat_completion.create(
+                model="deepseek-ai/DeepSeek-V3-0324",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            st.subheader("🤖 Hugging Face Suggestion")
+            st.write(hf_resp.choices[0].message["content"])
+        except Exception as e:
+            st.error(f"Hugging Face error: {e}")
