@@ -2,112 +2,136 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests
+import google.generativeai as genai
 
-# Load secrets
-genai_key = st.secrets["gemini"]["api_key"]
-openrouter_key = st.secrets["openrouter"]["api_key"]
+# Configuration
 CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
 BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
+genai.configure(api_key=st.secrets["gemini"]["api_key"])
+OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
 API_KEY = st.secrets["alpha_vantage"]["api_key"]
 
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
 st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
 
+# Monthly return helper
 def get_alpha_vantage_monthly_return(symbol):
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
     r = requests.get(url)
     if r.status_code != 200:
         return None
-    data = r.json()
-    ts = data.get("Monthly Adjusted Time Series", {})
+    ts = r.json().get("Monthly Adjusted Time Series", {})
     closes = [float(v["5. adjusted close"]) for v in ts.values()]
-    if len(closes) < 2:
-        return None
-    return (closes[0] - closes[1]) / closes[1]
+    return (closes[0] - closes[1]) / closes[1] if len(closes) >= 2 else None
 
-# Sidebar Inputs
-st.sidebar.header("📊 Monthly Income")
-income = st.sidebar.number_input("Monthly income (before tax, $)", min_value=0.0, value=5000.0, step=100.0)
-tax_rate = st.sidebar.slider("Tax rate (%)", 0, 50, 20)
-
-st.sidebar.header("📌 Expenses")
-housing = st.sidebar.number_input("Housing / Rent ($)", 0.0, 5000.0, 1200.0, 50.0)
-food = st.sidebar.number_input("Food / Groceries ($)", 0.0, 5000.0, 500.0, 50.0)
-transport = st.sidebar.number_input("Transport ($)", 0.0, 5000.0, 300.0, 50.0)
-utilities = st.sidebar.number_input("Utilities ($)", 0.0, 5000.0, 200.0, 50.0)
-entertainment = st.sidebar.number_input("Entertainment ($)", 0.0, 5000.0, 200.0, 50.0)
-others = st.sidebar.number_input("Other expenses ($)", 0.0, 5000.0, 200.0, 50.0)
-
-st.sidebar.header("📈 Investments")
-stocks = st.sidebar.number_input("Stocks investment ($)", 0.0, 5000.0, 500.0, 100.0)
-bonds = st.sidebar.number_input("Bonds investment ($)", 0.0, 5000.0, 300.0, 100.0)
-real_estate = st.sidebar.number_input("Real estate ($)", 0.0, 5000.0, 0.0, 100.0)
-
-# Calculations
-after_tax_income = income * (1 - tax_rate / 100)
-total_expenses = housing + food + transport + utilities + entertainment + others
-total_investments = stocks + bonds + real_estate
-surplus = after_tax_income - total_expenses - total_investments
-
-st.subheader("📋 Summary")
-st.metric("After-tax income", f"${after_tax_income:,.2f}")
-st.metric("Total expenses", f"${total_expenses:,.2f}")
-st.metric("Total investments", f"${total_investments:,.2f}")
-st.metric("Surplus / Deficit", f"${surplus:,.2f}")
-
-# Pie Chart
-data = {
-    "Category": ["Housing", "Food", "Transport", "Utilities", "Entertainment", "Others", "Stocks", "Bonds", "Real Estate"],
-    "Amount": [housing, food, transport, utilities, entertainment, others, stocks, bonds, real_estate]
+# Sidebar inputs
+st.sidebar.header("📊 Income & Expenses")
+income = st.sidebar.number_input("Monthly Income (before tax)", 0.0, 20000.0, 5000.0, 100.0)
+tax_rate = st.sidebar.slider("Tax Rate (%)", 0, 50, 20)
+expenses = {
+    "Housing": st.sidebar.number_input("Housing", 0.0, 5000.0, 1200.0, 50.0),
+    "Food": st.sidebar.number_input("Food", 0.0, 5000.0, 500.0, 50.0),
+    "Transport": st.sidebar.number_input("Transport", 0.0, 5000.0, 300.0, 50.0),
+    "Utilities": st.sidebar.number_input("Utilities", 0.0, 5000.0, 200.0, 50.0),
+    "Entertainment": st.sidebar.number_input("Entertainment", 0.0, 5000.0, 200.0, 50.0),
+    "Others": st.sidebar.number_input("Others", 0.0, 5000.0, 200.0, 50.0)
 }
-df = pd.DataFrame(data)
-fig = px.pie(df, names="Category", values="Amount", title="Expense & Investment Breakdown")
-st.plotly_chart(fig)
+st.sidebar.header("📈 Investments")
+investments = {
+    "Stocks": st.sidebar.number_input("Stocks", 0.0, 5000.0, 500.0, 100.0),
+    "Bonds": st.sidebar.number_input("Bonds", 0.0, 5000.0, 300.0, 100.0),
+    "RealEstate": st.sidebar.number_input("Real Estate", 0.0, 5000.0, 0.0, 100.0),
+    "Crypto": st.sidebar.number_input("Crypto", 0.0, 5000.0, 0.0, 100.0),
+    "FixedDeposit": st.sidebar.number_input("Fixed Deposit", 0.0, 5000.0, 0.0, 100.0)
+}
+months = st.sidebar.slider("Projection Period (months)", 1, 60, 12)
+savings_target = st.sidebar.number_input("Target Net Worth ($)", 0.0, 1000000.0, 10000.0, 500.0)
 
-# Botpress Chat API Integration
-st.subheader("🤖 Ask Botpress for Suggestions")
+# Calculate
+after_tax = income * (1 - tax_rate / 100)
+total_exp = sum(expenses.values())
+total_inv = sum(investments.values())
+net_cash = after_tax - total_exp - total_inv
 
-def call_botpress_api(message):
-    base_url = f"https://api.botpress.cloud/v1/chat/{CHAT_API_ID}"
-    headers = {
-        "Authorization": f"Bearer {BOTPRESS_TOKEN}",
-        "Content-Type": "application/json"
+# Warnings
+if total_exp > 0.7 * after_tax:
+    st.warning("⚠️ Expenses are too high!")
+if total_inv < 0.1 * after_tax:
+    st.info("💡 Consider increasing your investments.")
+
+# Investment returns
+returns = {
+    "Stocks": get_alpha_vantage_monthly_return("SPY") or 0.01,
+    "Bonds": get_alpha_vantage_monthly_return("AGG") or 0.003,
+    "RealEstate": 0.004,
+    "Crypto": 0.02,
+    "FixedDeposit": 0.003
+}
+
+# Simulation
+balance = 0
+rows = []
+for m in range(1, months + 1):
+    balance += net_cash
+    future = {
+        k: v * ((1 + returns[k])**m - 1) / returns[k] if returns[k] else 0
+        for k, v in investments.items()
     }
+    net_worth = balance + sum(future.values())
+    rows.append(dict(Month=m, Balance=balance, NetWorth=net_worth, **future))
+df = pd.DataFrame(rows)
 
-    # Step 1: Start conversation
-    try:
-        conv_resp = requests.post(f"{base_url}/conversations", headers=headers)
-        conv_resp.raise_for_status()
-        conversation_id = conv_resp.json()["id"]
-    except Exception as e:
-        return f"❌ Error starting conversation: {e}"
+# Summary
+st.subheader("📋 Summary")
+st.metric("Net Monthly Cash Flow", f"${net_cash:,.2f}")
+st.metric("Total Expenses", f"${total_exp:,.2f}")
+st.metric("Total Investments", f"${total_inv:,.2f}")
 
-    # Step 2: Send message
-    try:
-        msg_url = f"{base_url}/messages"
-        payload = {
-            "conversationId": conversation_id,
-            "payload": {
-                "type": "text",
-                "text": message
-            }
-        }
-        msg_resp = requests.post(msg_url, headers=headers, json=payload)
-        msg_resp.raise_for_status()
-        data = msg_resp.json()
-        return data.get("messages", [{}])[0].get("payload", {}).get("text", "🤖 No reply received.")
-    except Exception as e:
-        return f"❌ Error sending message: {e}"
+# Charts
+st.subheader("📈 Net Worth Projection")
+fig = px.line(df, x="Month", y=["NetWorth", "Balance"] + list(investments.keys()), markers=True)
+fig.add_hline(y=savings_target, line_color="red", line_dash="dot", annotation_text="Target")
+st.plotly_chart(fig, use_container_width=True)
 
-# Construct AI prompt
-user_prompt = f"""
-Income: ${income}, Tax Rate: {tax_rate}%
-Expenses - Housing: ${housing}, Food: ${food}, Transport: ${transport}, Utilities: ${utilities}, Entertainment: ${entertainment}, Others: ${others}
-Investments - Stocks: ${stocks}, Bonds: ${bonds}, Real Estate: ${real_estate}
-Suggest improvements in budgeting or investing.
+st.subheader("📊 Expense Breakdown")
+st.plotly_chart(px.pie(names=expenses.keys(), values=expenses.values(), title="Expenses"), use_container_width=True)
+
+st.subheader("📊 Investment Breakdown")
+st.plotly_chart(px.pie(names=investments.keys(), values=investments.values(), title="Investments"), use_container_width=True)
+
+# Botpress prompt
+prompt = f"""
+💬 Budget Overview:
+After-tax: ${after_tax}
+Expenses: ${total_exp}
+Investments: ${total_inv}
+Cash Flow: ${net_cash}/mo
+Target Net Worth: ${savings_target}
+Projected: ${df['NetWorth'].iloc[-1]:.2f}
+
+Give actionable advice to optimize expenses, investments, and help reach the goal.
 """
 
-if st.button("💬 Ask Botpress"):
-    with st.spinner("Waiting for Botpress..."):
-        reply = call_botpress_api(user_prompt)
-        st.markdown(f"**🧠 Botpress says:**\n\n> {reply}")
+# Botpress interaction
+if st.button("🤖 Get Advice from Botpress"):
+    try:
+        if "conversation_id" not in st.session_state:
+            conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
+            headers = {"Authorization": f"Bearer {BOTPRESS_TOKEN}", "Content-Type": "application/json"}
+            conv = requests.post(conv_url, headers=headers).json()
+            st.session_state["conversation_id"] = conv["conversation"]["id"]
+
+        msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
+        payload = {
+            "conversationId": st.session_state["conversation_id"],
+            "payload": {"type": "text", "text": prompt}
+        }
+        r = requests.post(msg_url, headers=headers, json=payload)
+        r.raise_for_status()
+        st.success("✅ Message sent!")
+        if 'application/json' in r.headers.get('Content-Type', ''):
+            st.json(r.json())
+        else:
+            st.write(r.text)
+    except Exception as e:
+        st.error(f"❌ Botpress error: {e}")
