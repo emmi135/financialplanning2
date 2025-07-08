@@ -124,17 +124,33 @@ Suggest: How to reduce high expenses and rebalance investment for goal attainmen
 
 if st.button("💬 Ask Botpress for Advice"):
     try:
+        # Start conversation
         conv_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations"
         headers = {"Authorization": f"Bearer {BOTPRESS_TOKEN}", "Content-Type": "application/json"}
-
         conv_resp = requests.post(conv_url, headers=headers)
         conv_resp.raise_for_status()
         conversation_id = conv_resp.json()["id"]
 
+        # Send message
         msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
         msg_payload = {"conversationId": conversation_id, "payload": {"type": "text", "text": prompt}}
-        msg_resp = requests.post(msg_url, headers=headers, json=msg_payload)
-        msg_resp.raise_for_status()
+        requests.post(msg_url, headers=headers, json=msg_payload).raise_for_status()
+
+        # Fetch latest messages
+        history_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations/{conversation_id}/messages"
+        history_resp = requests.get(history_url, headers=headers)
+        history_resp.raise_for_status()
+        messages = history_resp.json()
+
+        # Extract the last bot reply
+        bot_replies = [m for m in messages if not m["incoming"]]
+        reply = bot_replies[-1]["payload"]["text"] if bot_replies else "🤖 No bot reply received yet."
+
+        st.success("✅ Botpress replied:")
+        st.markdown(f"> {reply}")
+
+    except Exception as e:
+        st.error(f"❌ Botpress error: {e}")
 
         reply = msg_resp.json().get("payload", {}).get("text", "No reply received.")
         st.success("✅ Botpress replied:")
