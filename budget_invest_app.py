@@ -122,22 +122,11 @@ Financial Summary:
 Suggest: How to reduce high expenses and rebalance investment for goal attainment.
 """
 
-import requests
+ Botpress error: list index out of range
+NameError: This app has encountered an error. The original error message is redacted to prevent data leaks. Full error details have been recorded in the logs (if you're on Streamlit Cloud, click on 'Manage app' in the lower right of your app).
+Traceback:
 
-WEBHOOK_URL = "https://webhook.botpress.cloud/<your-bot-id>/test"  # ✅ Match 'test' from Botpress
-
-headers = {
-    "Content-Type": "application/json"
-    # Optional: "x-bp-secret": "your-secret"  if you set one in Botpress
-}
-
-payload = {
-    "text": "Financial summary: income=5000, expenses=3000, goal=10000"
-}
-
-response = requests.post(WEBHOOK_URL, headers=headers, json=payload)
-print(response.status_code)
-print(response.json())
+File "/mount/src/budget-invest-app/budget_invest_app.py
 
 
 
