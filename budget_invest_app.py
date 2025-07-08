@@ -122,11 +122,51 @@ Financial Summary:
 Suggest: How to reduce high expenses and rebalance investment for goal attainment.
 """
 
- Botpress error: list index out of range
-NameError: This app has encountered an error. The original error message is redacted to prevent data leaks. Full error details have been recorded in the logs (if you're on Streamlit Cloud, click on 'Manage app' in the lower right of your app).
-Traceback:
+import json
+import time
+import requests
+import streamlit as st
 
-File "/mount/src/budget-invest-app/budget_invest_app.py
+if st.button("💬 Ask Botpress for Advice"):
+    try:
+        # 1. Create conversation (only needed for live chat API)
+        conv_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations"
+        headers = {
+            "Authorization": f"Bearer {BOTPRESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        conv_resp = requests.post(conv_url, headers=headers)
+        conv_resp.raise_for_status()
+        conversation_id = conv_resp.json()["id"]
+
+        # 2. Send message
+        msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
+        msg_payload = {"conversationId": conversation_id, "payload": {"type": "text", "text": prompt}}
+        requests.post(msg_url, headers=headers, json=msg_payload).raise_for_status()
+
+        # 3. Wait a bit then fetch history
+        time.sleep(2)
+        history_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations/{conversation_id}/messages"
+        history_resp = requests.get(history_url, headers=headers)
+        history_resp.raise_for_status()
+        messages = history_resp.json()
+
+        # 4. Parse and find last bot reply safely
+        bot_replies = [m for m in messages if not m.get("incoming", True)]
+
+        if bot_replies:
+            last = bot_replies[-1]
+            payload = last.get("payload", {})
+            reply = payload.get("text", "🤖 Bot responded, but no text was found.")
+        else:
+            reply = "🤖 No reply received from the bot. Check if the webhook flow has a 'Say something' or 'LLM' response."
+
+        st.success("✅ Botpress replied:")
+        st.markdown(f"> {reply}")
+
+    except Exception as e:
+        st.error(f"❌ Botpress error: {e}")
+y
 
 
 
