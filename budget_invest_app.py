@@ -126,7 +126,7 @@ Please provide advice on controlling expenses, optimizing investment allocation,
 
 if st.button("Send to Botpress"):
     try:
-        conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
+        conv_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations"
         headers = {
             "Authorization": f"Bearer {BOTPRESS_TOKEN}",
             "Content-Type": "application/json"
@@ -135,7 +135,7 @@ if st.button("Send to Botpress"):
         conv_resp.raise_for_status()
         conversation_id = conv_resp.json()["id"]
 
-        msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
+        msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
         msg_payload = {
             "conversationId": conversation_id,
             "payload": {
