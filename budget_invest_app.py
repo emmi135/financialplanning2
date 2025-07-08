@@ -4,20 +4,20 @@ import plotly.express as px
 import requests
 import google.generativeai as genai
 
-# Secrets
+# --- Load secrets ---
 CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
 BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
-API_KEY = st.secrets["alpha_vantage"]["api_key"]
+ALPHA_API_KEY = st.secrets["alpha_vantage"]["api_key"]
 
-# UI
+# --- Page config ---
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
 st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
 
-# Get investment returns from Alpha Vantage
+# --- Function to get monthly return ---
 def get_alpha_vantage_monthly_return(symbol):
-    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
+    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={ALPHA_API_KEY}"
     r = requests.get(url)
     if r.status_code != 200:
         return None
@@ -26,9 +26,10 @@ def get_alpha_vantage_monthly_return(symbol):
     closes = [float(v["5. adjusted close"]) for v in ts.values()]
     if len(closes) < 2:
         return None
-    return (closes[0] - closes[1]) / closes[1]
+    monthly_return = (closes[0] - closes[1]) / closes[1]
+    return monthly_return
 
-# Sidebar inputs
+# --- Sidebar Inputs ---
 st.sidebar.header("📊 Monthly Income")
 income = st.sidebar.number_input("Monthly income (before tax, $)", min_value=0.0, value=5000.0, step=100.0)
 tax_rate = st.sidebar.slider("Tax rate (%)", 0, 50, 20)
@@ -51,14 +52,14 @@ fixed_deposit = st.sidebar.number_input("Fixed deposit ($)", 0.0, 5000.0, 0.0, 1
 months = st.sidebar.slider("Projection period (months)", 1, 60, 12)
 savings_target = st.sidebar.number_input("Savings target at end of period ($)", 0.0, 1_000_000.0, 10000.0, 500.0)
 
-# Investment returns
+# --- Returns ---
 stock_r = get_alpha_vantage_monthly_return("SPY") or 0.01
 bond_r = get_alpha_vantage_monthly_return("AGG") or 0.003
 real_r = 0.004
 crypto_r = 0.02
 fd_r = 0.003
 
-# Budget simulation
+# --- Calculations ---
 after_tax_income = income * (1 - tax_rate / 100)
 total_exp = housing + food + transport + utilities + entertainment + others
 total_inv = stocks + bonds + real_estate + crypto + fixed_deposit
@@ -86,7 +87,7 @@ for m in range(1, months + 1):
     })
 df = pd.DataFrame(rows)
 
-# Summary section
+# --- Summary ---
 st.subheader("📋 Summary")
 st.metric("Income (gross)", f"${income:,.2f}")
 st.metric("After tax income", f"${after_tax_income:,.2f}")
@@ -94,7 +95,7 @@ st.metric("Expenses", f"${total_exp:,.2f}")
 st.metric("Investments", f"${total_inv:,.2f}")
 st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
-# Charts
+# --- Charts ---
 st.subheader("📈 Net Worth Growth")
 fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"],
               markers=True, title="Net Worth & Investments Over Time")
@@ -122,49 +123,59 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
-# Prompt to AI
+# --- Prompt for Bot ---
 prompt = f"""
 📊 Financial Summary:
-- Gross income: ${income}
-- Tax rate: {tax_rate}%
-- After-tax income: ${after_tax_income}
-- Monthly expenses: ${total_exp}
-- Monthly investments: ${total_inv}
-- Net monthly surplus: ${net_flow}
-- Savings goal after {months} months: ${savings_target}
-- Projected net worth after {months} months: ${df['NetWorth'].iloc[-1]:,.2f}
+Gross Income: ${income}
+Tax Rate: {tax_rate}%
+After-Tax Income: ${after_tax_income}
+Total Expenses: ${total_exp}
+Total Investment: ${total_inv}
+Net Cash Flow: ${net_flow}/month
+Savings Target: ${savings_target}
+Projected Net Worth: ${df['NetWorth'].iloc[-1]:,.2f}
 
-Give personalized advice on expense control, risky investments, and achieving the target efficiently.
+Please suggest improvements in expenses and investment distribution to help reach the savings target.
 """
 
-# Botpress integration
-if st.button("Send to Botpress for Recommendations"):
+# --- Botpress Chat Integration ---
+def create_conversation():
+    url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
+    headers = {
+        "Authorization": f"Bearer {BOTPRESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = { "userId": "user-123" }
+    response = requests.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+    return response.json()["id"]
+
+def send_message(conversation_id, text):
+    url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {BOTPRESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "conversationId": conversation_id,
+        "payload": { "type": "text", "text": text }
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+    return response.json()
+
+st.subheader("💬 Get Smart Advice from Botpress Agent")
+
+if st.button("Send to Botpress Agent"):
     try:
         if "conversation_id" not in st.session_state:
-            conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
-            headers = {
-                "Authorization": f"Bearer {BOTPRESS_TOKEN}",
-                "Content-Type": "application/json"
-            }
-            conv_resp = requests.post(conv_url, headers=headers, json={})
-            conv_resp.raise_for_status()
-            st.session_state["conversation_id"] = conv_resp.json()["conversation"]["id"]
+            st.session_state["conversation_id"] = create_conversation()
 
-        msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
-        payload = {
-            "payload": {"type": "text", "text": prompt},
-            "conversationId": st.session_state["conversation_id"]
-        }
-        msg_resp = requests.post(msg_url, headers=headers, json=payload)
-        msg_resp.raise_for_status()
-        st.success("Botpress response received!")
-
-        # Show reply (if any text returned)
-        reply = msg_resp.json().get("responses", [{}])[0].get("payload", {}).get("text")
-        if reply:
-            st.info(reply)
+        response = send_message(st.session_state["conversation_id"], prompt)
+        replies = response.get("responses", [])
+        if replies:
+            st.success(replies[0]["payload"]["text"])
         else:
-            st.warning("No reply received from Botpress.")
-
+            st.warning("Botpress returned no reply.")
     except Exception as e:
         st.error(f"❌ Botpress error: {e}")
