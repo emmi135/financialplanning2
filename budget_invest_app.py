@@ -124,33 +124,47 @@ Suggest: How to reduce high expenses and rebalance investment for goal attainmen
 
 if st.button("💬 Ask Botpress for Advice"):
     try:
-        # Start conversation
+        # Start a new conversation
         conv_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations"
-        headers = {"Authorization": f"Bearer {BOTPRESS_TOKEN}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {BOTPRESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
         conv_resp = requests.post(conv_url, headers=headers)
         conv_resp.raise_for_status()
         conversation_id = conv_resp.json()["id"]
 
-        # Send message
+        # Send a message to the conversation
         msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
-        msg_payload = {"conversationId": conversation_id, "payload": {"type": "text", "text": prompt}}
-        requests.post(msg_url, headers=headers, json=msg_payload).raise_for_status()
+        msg_payload = {
+            "conversationId": conversation_id,
+            "payload": {
+                "type": "text",
+                "text": prompt
+            }
+        }
+        send_resp = requests.post(msg_url, headers=headers, json=msg_payload)
+        send_resp.raise_for_status()
 
-        # Fetch latest messages
+        # Fetch messages to get the bot's reply
         history_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations/{conversation_id}/messages"
         history_resp = requests.get(history_url, headers=headers)
         history_resp.raise_for_status()
-        messages = history_resp.json()
+        messages = history_resp.json()  # Should be a list
 
-        # Extract the last bot reply
-        bot_replies = [m for m in messages if not m["incoming"]]
-        reply = bot_replies[-1]["payload"]["text"] if bot_replies else "🤖 No bot reply received yet."
+        # Extract bot replies (incoming = False)
+        bot_replies = [m for m in messages if not m.get("incoming", True)]
+        if bot_replies:
+            reply = bot_replies[-1]["payload"].get("text", "🤖 Bot replied without text.")
+        else:
+            reply = "🤖 No bot reply found yet. Check your Botpress flow."
 
         st.success("✅ Botpress replied:")
         st.markdown(f"> {reply}")
 
     except Exception as e:
         st.error(f"❌ Botpress error: {e}")
+
 
         reply = msg_resp.json().get("payload", {}).get("text", "No reply received.")
         st.success("✅ Botpress replied:")
