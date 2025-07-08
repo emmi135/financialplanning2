@@ -7,7 +7,7 @@ import google.generativeai as genai
 # Load secrets
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
-API_KEY = st.secrets["alpha_vantage"]["api_key"]
+CHAT_API_ID = st.secrets["CHAT_API_ID"]
 CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
 BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
 
@@ -15,7 +15,7 @@ BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
 st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
 
-# Function to get Alpha Vantage returns
+# Alpha Vantage data fetch
 def get_alpha_vantage_monthly_return(symbol):
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
     r = requests.get(url)
@@ -26,8 +26,7 @@ def get_alpha_vantage_monthly_return(symbol):
     closes = [float(v["5. adjusted close"]) for v in ts.values()]
     if len(closes) < 2:
         return None
-    monthly_return = (closes[0] - closes[1]) / closes[1]
-    return monthly_return
+    return (closes[0] - closes[1]) / closes[1]
 
 # Sidebar inputs
 st.sidebar.header("📊 Monthly Income")
@@ -52,19 +51,20 @@ fixed_deposit = st.sidebar.number_input("Fixed deposit ($)", 0.0, 5000.0, 0.0, 1
 months = st.sidebar.slider("Projection period (months)", 1, 60, 12)
 savings_target = st.sidebar.number_input("Savings target at end of period ($)", 0.0, 1_000_000.0, 10000.0, 500.0)
 
-# Returns
+# Return assumptions
 stock_r = get_alpha_vantage_monthly_return("SPY") or 0.01
 bond_r = get_alpha_vantage_monthly_return("AGG") or 0.003
 real_r = 0.004
 crypto_r = 0.02
 fd_r = 0.003
 
-# Calculations
+# Financial calculations
 after_tax_income = income * (1 - tax_rate / 100)
 total_exp = housing + food + transport + utilities + entertainment + others
 total_inv = stocks + bonds + real_estate + crypto + fixed_deposit
 net_flow = after_tax_income - total_exp - total_inv
 
+# Net worth projections
 bal = 0
 rows = []
 for m in range(1, months + 1):
@@ -87,7 +87,7 @@ for m in range(1, months + 1):
     })
 df = pd.DataFrame(rows)
 
-# Summary
+# Display outputs
 st.subheader("📋 Summary")
 st.metric("Income (gross)", f"${income:,.2f}")
 st.metric("After tax income", f"${after_tax_income:,.2f}")
@@ -97,33 +97,19 @@ st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
 # Charts
 st.subheader("📈 Net Worth Growth")
-fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"],
-              markers=True, title="Net Worth & Investments Over Time")
+fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"])
 fig.add_hline(y=savings_target, line_dash="dash", line_color="red", annotation_text="Target")
 st.plotly_chart(fig, use_container_width=True)
 
 st.subheader("🧾 Expense Breakdown")
-exp_s = pd.Series({
-    "Housing": housing,
-    "Food": food,
-    "Transport": transport,
-    "Utilities": utilities,
-    "Entertainment": entertainment,
-    "Others": others
-})
-st.plotly_chart(px.pie(names=exp_s.index, values=exp_s.values, title="Expense Breakdown"), use_container_width=True)
+st.plotly_chart(px.pie(names=["Housing", "Food", "Transport", "Utilities", "Entertainment", "Others"],
+                       values=[housing, food, transport, utilities, entertainment, others]), use_container_width=True)
 
 st.subheader("💼 Investment Breakdown")
-inv_s = pd.Series({
-    "Stocks": stocks,
-    "Bonds": bonds,
-    "RealEstate": real_estate,
-    "Crypto": crypto,
-    "FixedDeposit": fixed_deposit
-})
-st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
+st.plotly_chart(px.pie(names=["Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit"],
+                       values=[stocks, bonds, real_estate, crypto, fixed_deposit]), use_container_width=True)
 
-# Prompt
+# Final summary to send to Botpress
 prompt = f"""
 Financial summary:
 Gross income: ${income}
@@ -134,92 +120,31 @@ Investments: ${total_inv}
 Net cash flow: ${net_flow}/mo
 Savings target: ${savings_target}
 Projected net worth: ${df['NetWorth'].iloc[-1]}
-Provide advice on expense control, investment balance, and achieving target.
+Please provide advice on controlling expenses, optimizing investment allocation, and strategies to meet the savings target.
 """
 
-# LLM output states
-if "gemini_output" not in st.session_state:
-    st.session_state.gemini_output = ""
-if "deepseek_output" not in st.session_state:
-    st.session_state.deepseek_output = ""
-
-# Layout
-col1, col2 = st.columns(2)
-
-# Gemini
-if col1.button("🔮 Get Gemini Suggestion"):
-    with st.spinner("Generating with Gemini..."):
-        try:
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            response = model.generate_content(prompt)
-            st.session_state.gemini_output = response.text
-        except Exception as e:
-            st.session_state.gemini_output = f"Gemini Error: {e}"
-
-# DeepSeek
-if col2.button("🧠 Get DeepSeek Suggestion"):
-    with st.spinner("Generating with DeepSeek..."):
-        try:
-            headers = {
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "model": "deepseek/deepseek-r1:free",
-                "messages": [{"role": "user", "content": prompt}]
-            }
-            resp = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
-            data = resp.json()
-            st.session_state.deepseek_output = data["choices"][0]["message"]["content"]
-        except Exception as e:
-            st.session_state.deepseek_output = f"DeepSeek Error: {e}"
-
-# Display both outputs
-with col1:
-    if st.session_state.gemini_output:
-        st.subheader("🧠 Gemini Output")
-        st.write(st.session_state.gemini_output)
-
-with col2:
-    if st.session_state.deepseek_output:
-        st.subheader("🤖 DeepSeek Output")
-        st.write(st.session_state.deepseek_output)
-
-# Botpress button
-if st.button("💬 Send to Botpress"):
+if st.button("Send to Botpress"):
     try:
-        # Create conversation
-        if "conversation_id" not in st.session_state:
-            conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
-            headers = {
-                "Authorization": f"Bearer {BOTPRESS_TOKEN}",
-                "Content-Type": "application/json"
-            }
-            conv_resp = requests.post(conv_url, headers=headers, json={})
-            conv_resp.raise_for_status()
-            data = conv_resp.json()
-            if "conversation" in data:
-                st.session_state["conversation_id"] = data["conversation"]["id"]
-            else:
-                st.error(f"Botpress conversation error: {data}")
-                st.stop()
-
-        # Send message
-        msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
+        conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
         headers = {
             "Authorization": f"Bearer {BOTPRESS_TOKEN}",
             "Content-Type": "application/json"
         }
-        payload = {
-            "payload": {"type": "text", "text": prompt},
-            "conversationId": st.session_state["conversation_id"]
+        conv_resp = requests.post(conv_url, headers=headers)
+        conv_resp.raise_for_status()
+        conversation_id = conv_resp.json()["id"]
+
+        msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
+        msg_payload = {
+            "conversationId": conversation_id,
+            "payload": {
+                "type": "text",
+                "text": prompt
+            }
         }
-        msg_resp = requests.post(msg_url, headers=headers, json=payload)
+        msg_resp = requests.post(msg_url, headers=headers, json=msg_payload)
         msg_resp.raise_for_status()
-        if 'application/json' in msg_resp.headers.get('Content-Type', ''):
-            st.success("Botpress replied successfully!")
-            st.json(msg_resp.json())
-        else:
-            st.warning(msg_resp.text)
+        st.success("✅ Budget data sent to Botpress.")
+        st.json(msg_resp.json())
     except Exception as e:
-        st.error(f"Botpress error: {e}")
+        st.error(f"Botpress conversation error: {e}")
