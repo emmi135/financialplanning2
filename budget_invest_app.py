@@ -183,7 +183,8 @@ if st.button("💬 Ask Botpress for Advice"):
         st.markdown(f"> {reply}")
 
     except Exception as e:
-        st.error(f"❌ Botpre
+        st.error(f"❌ Botpress error: {e}")
+
 
         st.markdown(f"> {reply}")
 
