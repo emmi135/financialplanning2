@@ -6,8 +6,8 @@ import google.generativeai as genai
 
 
 
-CHAT_API_ID = st.secrets["CHAT_API_ID"]
-BOTPRESS_TOKEN = st.secrets["BOTPRESS_TOKEN"]
+CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
+BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
 
 
 
