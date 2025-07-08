@@ -126,6 +126,7 @@ if st.button("💬 Ask Botpress for Advice"):
     try:
         conv_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations"
         headers = {"Authorization": f"Bearer {BOTPRESS_TOKEN}", "Content-Type": "application/json"}
+
         conv_resp = requests.post(conv_url, headers=headers)
         conv_resp.raise_for_status()
         conversation_id = conv_resp.json()["id"]
@@ -134,7 +135,10 @@ if st.button("💬 Ask Botpress for Advice"):
         msg_payload = {"conversationId": conversation_id, "payload": {"type": "text", "text": prompt}}
         msg_resp = requests.post(msg_url, headers=headers, json=msg_payload)
         msg_resp.raise_for_status()
-        st.success("✅ Data sent to Botpress successfully!")
-        st.json(msg_resp.json())
+
+        reply = msg_resp.json().get("payload", {}).get("text", "No reply received.")
+        st.success("✅ Botpress replied:")
+        st.markdown(f"> {reply}")
     except Exception as e:
-        st.error(f"❌ Botpress error: {str(e)}")
+        st.error(f"❌ Botpress error: {e}")
+
