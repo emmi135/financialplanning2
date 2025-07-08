@@ -4,23 +4,17 @@ import plotly.express as px
 import requests
 import google.generativeai as genai
 
-
-
-CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
-BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
-
-
-
-# Configure API keys
+# Load secrets
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
-
+API_KEY = st.secrets["alpha_vantage"]["api_key"]
+CHAT_API_ID = st.secrets["CHAT_API_ID"]
+BOTPRESS_TOKEN = st.secrets["BOTPRESS_TOKEN"]
 
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
 st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
 
-API_KEY = st.secrets["alpha_vantage"]["api_key"]
-
+# Function to get Alpha Vantage returns
 def get_alpha_vantage_monthly_return(symbol):
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
     r = requests.get(url)
@@ -34,7 +28,7 @@ def get_alpha_vantage_monthly_return(symbol):
     monthly_return = (closes[0] - closes[1]) / closes[1]
     return monthly_return
 
-# Inputs
+# Sidebar inputs
 st.sidebar.header("📊 Monthly Income")
 income = st.sidebar.number_input("Monthly income (before tax, $)", min_value=0.0, value=5000.0, step=100.0)
 tax_rate = st.sidebar.slider("Tax rate (%)", 0, 50, 20)
@@ -142,35 +136,89 @@ Projected net worth: ${df['NetWorth'].iloc[-1]}
 Provide advice on expense control, investment balance, and achieving target.
 """
 
-# Botpress interaction
-if st.button("Send to Botpress"):
+# LLM output states
+if "gemini_output" not in st.session_state:
+    st.session_state.gemini_output = ""
+if "deepseek_output" not in st.session_state:
+    st.session_state.deepseek_output = ""
+
+# Layout
+col1, col2 = st.columns(2)
+
+# Gemini
+if col1.button("🔮 Get Gemini Suggestion"):
+    with st.spinner("Generating with Gemini..."):
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt)
+            st.session_state.gemini_output = response.text
+        except Exception as e:
+            st.session_state.gemini_output = f"Gemini Error: {e}"
+
+# DeepSeek
+if col2.button("🧠 Get DeepSeek Suggestion"):
+    with st.spinner("Generating with DeepSeek..."):
+        try:
+            headers = {
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "deepseek/deepseek-r1:free",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+            resp = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
+            data = resp.json()
+            st.session_state.deepseek_output = data["choices"][0]["message"]["content"]
+        except Exception as e:
+            st.session_state.deepseek_output = f"DeepSeek Error: {e}"
+
+# Display both outputs
+with col1:
+    if st.session_state.gemini_output:
+        st.subheader("🧠 Gemini Output")
+        st.write(st.session_state.gemini_output)
+
+with col2:
+    if st.session_state.deepseek_output:
+        st.subheader("🤖 DeepSeek Output")
+        st.write(st.session_state.deepseek_output)
+
+# Botpress button
+if st.button("💬 Send to Botpress"):
     try:
-        # Create conversation if not exists
+        # Create conversation
         if "conversation_id" not in st.session_state:
             conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
             headers = {
                 "Authorization": f"Bearer {BOTPRESS_TOKEN}",
                 "Content-Type": "application/json"
             }
-            conv_resp = requests.post(conv_url, headers=headers, json={"body": {}})
+            conv_resp = requests.post(conv_url, headers=headers, json={})
             conv_resp.raise_for_status()
-            st.session_state["conversation_id"] = conv_resp.json()["conversation"]["id"]
+            data = conv_resp.json()
+            if "conversation" in data:
+                st.session_state["conversation_id"] = data["conversation"]["id"]
+            else:
+                st.error(f"Botpress conversation error: {data}")
+                st.stop()
 
         # Send message
         msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {BOTPRESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
         payload = {
             "payload": {"type": "text", "text": prompt},
             "conversationId": st.session_state["conversation_id"]
         }
         msg_resp = requests.post(msg_url, headers=headers, json=payload)
-        st.text(f"Status: {msg_resp.status_code}")
-        st.text(f"Response: {msg_resp.text}")
-
+        msg_resp.raise_for_status()
         if 'application/json' in msg_resp.headers.get('Content-Type', ''):
-            data = msg_resp.json()
-            st.success(data)
+            st.success("Botpress replied successfully!")
+            st.json(msg_resp.json())
         else:
-            st.warning(f"Non-JSON response:\n{msg_resp.text}")
-
+            st.warning(msg_resp.text)
     except Exception as e:
         st.error(f"Botpress error: {e}")
