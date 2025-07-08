@@ -122,11 +122,12 @@ Financial Summary:
 Suggest: How to reduce high expenses and rebalance investment for goal attainment.
 """
 
-import time  # required for sleep
+import json
+import time
 
 if st.button("💬 Ask Botpress for Advice"):
     try:
-        # Step 1: Create conversation
+        # 1. Create conversation
         conv_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations"
         headers = {
             "Authorization": f"Bearer {BOTPRESS_TOKEN}",
@@ -136,33 +137,39 @@ if st.button("💬 Ask Botpress for Advice"):
         conv_resp.raise_for_status()
         conversation_id = conv_resp.json()["id"]
 
-        # Step 2: Send user message
+        # 2. Send message
         msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
         msg_payload = {
             "conversationId": conversation_id,
             "payload": {"type": "text", "text": prompt}
         }
-        send_resp = requests.post(msg_url, headers=headers, json=msg_payload)
-        send_resp.raise_for_status()
+        requests.post(msg_url, headers=headers, json=msg_payload).raise_for_status()
 
-        # Step 3: Wait briefly to allow LLM to reply
+        # 3. Wait and fetch history
         time.sleep(2)
-
-        # Step 4: Fetch message history
         history_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations/{conversation_id}/messages"
         history_resp = requests.get(history_url, headers=headers)
         history_resp.raise_for_status()
         messages = history_resp.json()
 
-        # Step 5: Extract last bot reply
+        # 4. Decode if it's a string
+        if isinstance(messages, str):
+            messages = json.loads(messages)
+
+        # 5. Extract reply
         bot_replies = [m for m in messages if not m.get("incoming", True)]
         if bot_replies:
             payload = bot_replies[-1].get("payload", {})
-            reply = payload["text"] if isinstance(payload, dict) and "text" in payload else "🤖 No valid reply text."
+            reply = payload["text"] if isinstance(payload, dict) and "text" in payload else "🤖 No reply text."
         else:
-            reply = "🤖 No reply from bot found in conversation."
+            reply = "🤖 No bot reply found."
 
         st.success("✅ Botpress replied:")
+        st.markdown(f"> {reply}")
+
+    except Exception as e:
+        st.error(f"❌ Botpress error: {e}")
+
         st.markdown(f"> {reply}")
 
     except Exception as e:
