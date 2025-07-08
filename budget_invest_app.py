@@ -122,12 +122,12 @@ Financial Summary:
 Suggest: How to reduce high expenses and rebalance investment for goal attainment.
 """
 
-import json
 import time
+import json
 
 if st.button("💬 Ask Botpress for Advice"):
     try:
-        # 1. Create conversation
+        # Step 1: Create conversation
         conv_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations"
         headers = {
             "Authorization": f"Bearer {BOTPRESS_TOKEN}",
@@ -137,7 +137,7 @@ if st.button("💬 Ask Botpress for Advice"):
         conv_resp.raise_for_status()
         conversation_id = conv_resp.json()["id"]
 
-        # 2. Send message
+        # Step 2: Send message
         msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
         msg_payload = {
             "conversationId": conversation_id,
@@ -145,30 +145,45 @@ if st.button("💬 Ask Botpress for Advice"):
         }
         requests.post(msg_url, headers=headers, json=msg_payload).raise_for_status()
 
-        # 3. Wait and fetch history
+        # Step 3: Wait briefly to allow bot to respond
         time.sleep(2)
+
+        # Step 4: Fetch conversation history
         history_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations/{conversation_id}/messages"
         history_resp = requests.get(history_url, headers=headers)
         history_resp.raise_for_status()
-        messages = history_resp.json()
+        raw_messages = history_resp.json()
 
-        # 4. Decode if it's a string
-        if isinstance(messages, str):
-            messages = json.loads(messages)
+        # DEBUG OUTPUT
+        st.subheader("📦 Botpress Raw Message Output")
+        st.write(raw_messages)
+        st.write("Type of raw_messages:", type(raw_messages))
 
-        # 5. Extract reply
-        bot_replies = [m for m in messages if not m.get("incoming", True)]
-        if bot_replies:
-            payload = bot_replies[-1].get("payload", {})
-            reply = payload["text"] if isinstance(payload, dict) and "text" in payload else "🤖 No reply text."
+        # Step 5: Safely parse stringified JSON if needed
+        if isinstance(raw_messages, str):
+            try:
+                messages = json.loads(raw_messages)
+            except json.JSONDecodeError:
+                st.error("❌ Botpress response could not be parsed as JSON.")
+                messages = []
         else:
-            reply = "🤖 No bot reply found."
+            messages = raw_messages
 
+        # Step 6: Find last bot message
+        reply = "🤖 No bot reply received."
+        for m in reversed(messages):
+            if isinstance(m, dict) and not m.get("incoming", True):
+                payload = m.get("payload", {})
+                if isinstance(payload, dict) and "text" in payload:
+                    reply = payload["text"]
+                    break
+
+        # Step 7: Display bot reply
         st.success("✅ Botpress replied:")
         st.markdown(f"> {reply}")
 
     except Exception as e:
-        st.error(f"❌ Botpress error: {e}")
+        st.error(f"❌ Botpre
 
         st.markdown(f"> {reply}")
 
