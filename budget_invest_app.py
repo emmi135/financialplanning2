@@ -128,33 +128,40 @@ prompt = f"""
 """
 
 # Botpress AI Integration
-if st.button("Ask Botpress AI"):
+if st.button("Send to Botpress"):
     try:
+        conv_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations"
         headers = {
             "Authorization": f"Bearer {BOTPRESS_TOKEN}",
             "Content-Type": "application/json"
         }
-        if "conversation_id" not in st.session_state:
-            conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
-            conv_resp = requests.post(conv_url, headers=headers, json={})
-            conv_resp.raise_for_status()
-            st.session_state["conversation_id"] = conv_resp.json()["conversation"]["id"]
 
-        msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
+        conv_resp = requests.post(conv_url, headers=headers, json={})
+        if conv_resp.status_code != 200:
+            raise Exception(f"Conversation start failed: {conv_resp.text}")
+
+        conv_data = conv_resp.json()
+        if "id" not in conv_data:
+            raise Exception("❌ Botpress did not return a conversation ID.")
+        conversation_id = conv_data["id"]
+
+        # Send message to conversation
+        msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
         payload = {
-            "payload": {"type": "text", "text": prompt},
-            "conversationId": st.session_state["conversation_id"]
+            "conversationId": conversation_id,
+            "payload": {"type": "text", "text": prompt}
         }
         msg_resp = requests.post(msg_url, headers=headers, json=payload)
+        msg_resp.raise_for_status()
 
-        if msg_resp.ok and msg_resp.headers.get("Content-Type", "").startswith("application/json"):
-            response = msg_resp.json()
-            if response.get("responses"):
-                st.success(response["responses"][0]["payload"]["text"])
-            else:
-                st.warning("No reply. Check Botpress AI agent flow.")
+        # Parse Botpress reply
+        reply_data = msg_resp.json()
+        if isinstance(reply_data, dict) and "messages" in reply_data and len(reply_data["messages"]) > 0:
+            reply_text = reply_data["messages"][0].get("payload", {}).get("text", "No reply received.")
         else:
-            st.error(f"Botpress API error:\n{msg_resp.text}")
+            reply_text = "No reply received."
+
+        st.markdown(f"🤖 Botpress says:\n\n> {reply_text}")
 
     except Exception as e:
         st.error(f"❌ Botpress error: {e}")
