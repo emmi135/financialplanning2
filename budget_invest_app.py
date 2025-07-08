@@ -8,8 +8,9 @@ import google.generativeai as genai
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
 API_KEY = st.secrets["alpha_vantage"]["api_key"]
-CHAT_API_ID = st.secrets["CHAT_API_ID"]
-BOTPRESS_TOKEN = st.secrets["BOTPRESS_TOKEN"]
+CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
+BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
+
 
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
 st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
