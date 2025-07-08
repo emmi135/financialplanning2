@@ -130,25 +130,29 @@ if st.button("💬 Ask Botpress for Advice"):
         conv_resp.raise_for_status()
         conversation_id = conv_resp.json()["id"]
 
+        # Send message
         msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
         msg_payload = {"conversationId": conversation_id, "payload": {"type": "text", "text": prompt}}
         requests.post(msg_url, headers=headers, json=msg_payload).raise_for_status()
 
+        # Wait and fetch reply
         time.sleep(2)
         history_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations/{conversation_id}/messages"
         history_resp = requests.get(history_url, headers=headers)
         history_resp.raise_for_status()
         messages = history_resp.json()
 
+        # Extract reply safely
+        reply = "🤖 No reply received from Botpress."
         bot_replies = [m for m in messages if not m.get("incoming", True)]
         if bot_replies:
-            payload = bot_replies[-1].get("payload", {})
-            reply = payload.get("text", "🤖 Bot replied but no text was found.")
-        else:
-            reply = "🤖 No reply received from Botpress."
+            last_message = bot_replies[-1]
+            if isinstance(last_message.get("payload"), dict):
+                reply = last_message["payload"].get("text", reply)
 
         st.success("✅ Botpress replied:")
         st.markdown(f"> {reply}")
 
     except Exception as e:
         st.error(f"❌ Botpress error: {e}")
+
