@@ -128,22 +128,27 @@ for role, msg in st.session_state.chat_history:
 # Get new input
 user_msg = st.chat_input("💬 Ask for budgeting advice...")
 
-if user_msg:
+user_msg = st.chat_input("💬 Ask for budgeting advice...")
 
-    with st.spinner("Botpress thinking..."):
+if user_msg:
+    st.chat_message("user").write(user_msg)
+
+    with st.spinner("🤖 Botpress thinking..."):
         try:
-            # Start conversation (once)
+            # ✅ Define headers
+            headers = {
+                "Authorization": f"Bearer {BOTPRESS_TOKEN}",
+                "Content-Type": "application/json"
+            }
+
+            # ✅ Create conversation if not already created
             if "conversation_id" not in st.session_state:
                 conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
-                headers = {
-                    "Authorization": f"Bearer {BOTPRESS_TOKEN}",
-                    "Content-Type": "application/json"
-                }
                 conv_resp = requests.post(conv_url, headers=headers)
                 conv_resp.raise_for_status()
                 st.session_state["conversation_id"] = conv_resp.json()["conversation"]["id"]
 
-            # Send user message to Botpress chat API
+            # ✅ Send user message to Botpress
             msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
             payload = {
                 "conversationId": st.session_state["conversation_id"],
@@ -155,7 +160,7 @@ if user_msg:
             msg_resp = requests.post(msg_url, headers=headers, json=payload)
             msg_resp.raise_for_status()
 
-            # Get reply
+            # ✅ Display bot reply
             data = msg_resp.json()
             messages = data.get("messages", [])
             if messages:
@@ -166,4 +171,5 @@ if user_msg:
 
         except Exception as e:
             st.error(f"❌ Botpress error: {e}")
+
 
