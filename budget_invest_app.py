@@ -96,11 +96,24 @@ st.metric("Investments", f"${total_inv:,.2f}")
 st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
 # ⚠️ Warnings
+# ⚠️ Warnings and Emojis
+st.subheader("⚠️ Warnings and Financial Tips")
+
 if total_exp > after_tax_income * 0.8:
-    st.warning("⚠️ Your expenses are more than 80% of your after-tax income. Consider cutting down!")
+    st.warning("⚠️ Your expenses exceed 80% of your after-tax income. Consider reducing discretionary spending.")
 
 if total_inv < after_tax_income * 0.1:
-    st.info("📉 You're investing less than 10% of your income. Try to increase your savings!")
+    st.info("📉 You're investing less than 10% of your income. Try to increase your long-term savings.")
+
+if net_flow < 0:
+    st.error("❌ Your monthly cash flow is negative. You're spending more than you earn!")
+
+if total_exp + total_inv > after_tax_income:
+    st.warning("⚠️ Total expenses and investments exceed income. Review your budgeting strategy.")
+
+if savings_target > df['NetWorth'].iloc[-1]:
+    st.info("🎯 Your projected net worth is below your savings goal. Consider adjusting your targets or boosting investments.")
+
 
 # 📊 Charts
 st.subheader("📈 Net Worth Growth")
