@@ -165,23 +165,15 @@ if "gemini_output" not in st.session_state:
 if "deepseek_output" not in st.session_state:
     st.session_state.deepseek_output = ""
 
-
-# 🧠 Gemini & DeepSeek buttons
-st.subheader("🤖 AI Suggestions")
+# Columns
 col1, col2 = st.columns(2)
-
-if "gemini_output" not in st.session_state:
-    st.session_state.gemini_output = ""
-if "deepseek_output" not in st.session_state:
-    st.session_state.deepseek_output = ""
 
 if col1.button("Generate Gemini Suggestion"):
     with col1:
         with st.spinner("Gemini generating..."):
             try:
-                model = genai.GenerativeModel("gemini-pro")
-                response = model.generate_content(prompt)
-                st.session_state.gemini_output = response.text
+                gemini_resp = genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)
+                st.session_state.gemini_output = gemini_resp.text
             except Exception as e:
                 st.session_state.gemini_output = f"Gemini error: {e}"
 
@@ -194,7 +186,7 @@ if col2.button("Generate DeepSeek Suggestion"):
                     "Content-Type": "application/json"
                 }
                 payload = {
-                    "model": "deepseek/deepseek-r1:free",
+                    "model": "deepseek/deepseek-r1:free",  # Update if needed
                     "messages": [{"role": "user", "content": prompt}]
                 }
                 resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
@@ -214,6 +206,7 @@ with col2:
     if st.session_state.deepseek_output:
         st.subheader("🤖 DeepSeek Suggestion")
         st.write(st.session_state.deepseek_output)
+
 
 # ✅ Embedded Botpress WebChat
 st.subheader("🤖 Ask Your Financial Assistant (Botpress)")
