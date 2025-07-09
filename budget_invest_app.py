@@ -4,17 +4,9 @@ import plotly.express as px
 import requests
 import google.generativeai as genai
 
-
-
-CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
-BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
-
-
-
 # Configure API keys
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
-
 
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
 st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
@@ -142,35 +134,50 @@ Projected net worth: ${df['NetWorth'].iloc[-1]}
 Provide advice on expense control, investment balance, and achieving target.
 """
 
-# Botpress interaction
-if st.button("Send to Botpress"):
-    try:
-        # Create conversation if not exists
-        if "conversation_id" not in st.session_state:
-            conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
-            headers = {
-                "Authorization": f"Bearer {BOTPRESS_TOKEN}",
-                "Content-Type": "application/json"
-            }
-            conv_resp = requests.post(conv_url, headers=headers, json={"body": {}})
-            conv_resp.raise_for_status()
-            st.session_state["conversation_id"] = conv_resp.json()["conversation"]["id"]
+# Session state to store outputs
+if "gemini_output" not in st.session_state:
+    st.session_state.gemini_output = ""
+if "deepseek_output" not in st.session_state:
+    st.session_state.deepseek_output = ""
 
-        # Send message
-        msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
-        payload = {
-            "payload": {"type": "text", "text": prompt},
-            "conversationId": st.session_state["conversation_id"]
-        }
-        msg_resp = requests.post(msg_url, headers=headers, json=payload)
-        st.text(f"Status: {msg_resp.status_code}")
-        st.text(f"Response: {msg_resp.text}")
+# Columns
+col1, col2 = st.columns(2)
 
-        if 'application/json' in msg_resp.headers.get('Content-Type', ''):
-            data = msg_resp.json()
-            st.success(data)
-        else:
-            st.warning(f"Non-JSON response:\n{msg_resp.text}")
+if col1.button("Generate Gemini Suggestion"):
+    with col1:
+        with st.spinner("Gemini generating..."):
+            try:
+                gemini_resp = genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)
+                st.session_state.gemini_output = gemini_resp.text
+            except Exception as e:
+                st.session_state.gemini_output = f"Gemini error: {e}"
 
-    except Exception as e:
-        st.error(f"Botpress error: {e}")
+if col2.button("Generate DeepSeek Suggestion"):
+    with col2:
+        with st.spinner("DeepSeek generating..."):
+            try:
+                headers = {
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "deepseek/deepseek-r1:free",  # Update if needed
+                    "messages": [{"role": "user", "content": prompt}]
+                }
+                resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                st.session_state.deepseek_output = data["choices"][0]["message"]["content"]
+            except Exception as e:
+                st.session_state.deepseek_output = f"OpenRouter error: {e}"
+
+# Display outputs
+with col1:
+    if st.session_state.gemini_output:
+        st.subheader("🤖 Gemini Suggestion")
+        st.write(st.session_state.gemini_output)
+
+with col2:
+    if st.session_state.deepseek_output:
+        st.subheader("🤖 DeepSeek Suggestion")
+        st.write(st.session_state.deepseek_output)
