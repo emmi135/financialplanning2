@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -96,6 +95,13 @@ st.metric("Expenses", f"${total_exp:,.2f}")
 st.metric("Investments", f"${total_inv:,.2f}")
 st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
+# ⚠️ Warnings
+if total_exp > after_tax_income * 0.8:
+    st.warning("⚠️ Your expenses are more than 80% of your after-tax income. Consider cutting down!")
+
+if total_inv < after_tax_income * 0.1:
+    st.info("📉 You're investing less than 10% of your income. Try to increase your savings!")
+
 # 📊 Charts
 st.subheader("📈 Net Worth Growth")
 fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"],
@@ -138,7 +144,7 @@ Projected net worth: ${df['NetWorth'].iloc[-1]}
 Provide advice on expense control, investment balance, and achieving target.
 """
 
-# 🧠 Gemini & DeepSeek buttons
+# 🤖 AI Suggestions
 st.subheader("🤖 AI Suggestions")
 col1, col2 = st.columns(2)
 
