@@ -148,26 +148,36 @@ if st.button("🔷 Get Advice from Gemini"):
         st.error(f"Gemini error: {e}")
 
 # === 🤖 DEEPSEEK Button ===
-if st.button("🤖 Get Advice from DeepSeek"):
-    try:
-        r = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://your-app-url.com"
-            },
-            json={
-                "model": "deepseek-chat",
-                "messages": [{"role": "user", "content": prompt}]
-            }
-        )
-        r.raise_for_status()
-        deepseek_reply = r.json()["choices"][0]["message"]["content"]
-        st.success("🧠 DeepSeek Says:")
-        st.markdown(deepseek_reply)
-    except Exception as e:
-        st.error(f"DeepSeek error: {e}")
+if col2.button("Generate DeepSeek Suggestion"):
+    with col2:
+        with st.spinner("DeepSeek generating..."):
+            try:
+                headers = {
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "deepseek/deepseek-r1:free",  # Update if needed
+                    "messages": [{"role": "user", "content": prompt}]
+                }
+                resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                st.session_state.deepseek_output = data["choices"][0]["message"]["content"]
+            except Exception as e:
+                st.session_state.deepseek_output = f"OpenRouter error: {e}"
+
+# Display outputs
+with col1:
+    if st.session_state.gemini_output:
+        st.subheader("🤖 Gemini Suggestion")
+        st.write(st.session_state.gemini_output)
+
+with col2:
+    if st.session_state.deepseek_output:
+        st.subheader("🤖 DeepSeek Suggestion")
+        st.write(st.session_state.deepseek_output)
+
 
 # ✅ EMBEDDED BOTPRESS WEBCHAT
 st.subheader("🤖 Ask Your Financial Assistant (Botpress)")
