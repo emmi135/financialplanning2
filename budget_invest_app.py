@@ -126,39 +126,42 @@ for role, msg in st.session_state.chat_history:
         st.markdown(msg)
 
 # Get new input
-if user_input := st.chat_input("Ask something about your budget..."):
-    st.session_state.chat_history.append(("user", user_input))
-    with st.chat_message("user"):
-        st.markdown(user_input)
+if st.chat_input("💬 Ask for budgeting advice..."):
+    user_msg = st.session_state.input
+    with st.spinner("Botpress thinking..."):
+        try:
+            # Start conversation (once)
+            if "conversation_id" not in st.session_state:
+                conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
+                headers = {
+                    "Authorization": f"Bearer {BOTPRESS_TOKEN}",
+                    "Content-Type": "application/json"
+                }
+                conv_resp = requests.post(conv_url, headers=headers)
+                conv_resp.raise_for_status()
+                st.session_state["conversation_id"] = conv_resp.json()["conversation"]["id"]
 
-    headers = {
-        "Authorization": f"Bearer {BOTPRESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
+            # Send user message to Botpress chat API
+            msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
+            payload = {
+                "conversationId": st.session_state["conversation_id"],
+                "payload": {
+                    "type": "text",
+                    "text": user_msg
+                }
+            }
+            msg_resp = requests.post(msg_url, headers=headers, json=payload)
+            msg_resp.raise_for_status()
 
-    # Create conversation if needed
-    if not st.session_state.conversation_id:
-        conv_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations"
-        conv_resp = requests.post(conv_url, headers=headers)
-        if conv_resp.ok:
-            st.session_state.conversation_id = conv_resp.json().get("id")
-        else:
-            st.error("❌ Failed to start Botpress conversation.")
-            st.stop()
+            # Get reply
+            data = msg_resp.json()
+            messages = data.get("messages", [])
+            if messages:
+                bot_reply = messages[-1].get("payload", {}).get("text", "🤖 No reply.")
+                st.chat_message("assistant").write(bot_reply)
+            else:
+                st.warning("🤖 No messages returned.")
 
-    # Send message
-    msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
-    payload = {
-        "conversationId": st.session_state.conversation_id,
-        "payload": {"type": "text", "text": user_input}
-    }
-    msg_resp = requests.post(msg_url, headers=headers, json=payload)
+        except Exception as e:
+            st.error(f"❌ Botpress error: {e}")
 
-    if msg_resp.ok:
-        reply_data = msg_resp.json()
-        reply = reply_data.get("responses", ["🤖 No reply received."])[0]
-        st.session_state.chat_history.append(("assistant", reply))
-        with st.chat_message("assistant"):
-            st.markdown(reply)
-    else:
-        st.error("❌ Botpress error: " + msg_resp.text)
