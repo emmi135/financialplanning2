@@ -146,23 +146,23 @@ if st.button("💬 Ask for Budgeting Advice"):
             "Content-Type": "application/json"
         }
 
-        # Step 1: Create or reuse conversation
+        # ✅ Step 1: Create a new conversation using the CHAT domain (NOT webhook!)
         if "conversation_id" not in st.session_state:
             conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
-            conv_resp = requests.post(conv_url, headers=headers, json={})
+            conv_resp = requests.post(conv_url, headers=headers)
             conv_resp.raise_for_status()
             conv_data = conv_resp.json()
 
-            # Check for possible keys
+            # Handle different response formats
             if "conversationId" in conv_data:
                 st.session_state["conversation_id"] = conv_data["conversationId"]
             elif "conversation" in conv_data and "id" in conv_data["conversation"]:
                 st.session_state["conversation_id"] = conv_data["conversation"]["id"]
             else:
-                st.error(f"❌ Unexpected response: {conv_data}")
+                st.error(f"❌ Unexpected response format from Botpress: {conv_data}")
                 st.stop()
 
-        # Step 2: Send the budgeting prompt
+        # ✅ Step 2: Send message to the correct Chat endpoint
         msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations/{st.session_state['conversation_id']}/messages"
         payload = {
             "type": "text",
@@ -171,21 +171,14 @@ if st.button("💬 Ask for Budgeting Advice"):
         msg_resp = requests.post(msg_url, headers=headers, json=payload)
         msg_resp.raise_for_status()
 
-        # Step 3: Show response
-        st.success("✅ Budget advice sent to Botpress!")
-
+        # ✅ Step 3: Display response
         if 'application/json' in msg_resp.headers.get("Content-Type", ""):
             data = msg_resp.json()
-            st.info(f"📬 Botpress response: {data}")
+            st.success("✅ Message sent to Botpress!")
+            st.info(f"🧠 Botpress response:\n{data}")
         else:
-            st.warning(f"ℹ️ Response not in JSON:\n{msg_resp.text}")
+            st.warning(f"⚠️ Botpress returned non-JSON: {msg_resp.text}")
 
     except Exception as e:
         st.error(f"❌ Botpress error: {e}")
 
-        msg_resp = requests.post(msg_url, headers=headers, json=payload)
-        msg_resp.raise_for_status()
-        st.success("✅ Budget sent to Botpress!")
-
-    except Exception as e:
-        st.error(f"❌ Botpress error: {e}")
