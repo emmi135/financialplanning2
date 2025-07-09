@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -123,7 +124,7 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
-# 🧠 AI PROMPT
+# 💬 Prompt
 prompt = f"""
 Financial summary:
 Gross income: ${income}
@@ -134,20 +135,28 @@ Investments: ${total_inv}
 Net cash flow: ${net_flow}/mo
 Savings target: ${savings_target}
 Projected net worth: ${df['NetWorth'].iloc[-1]}
-Please give detailed advice on expense control and investment strategy.
+Provide advice on expense control, investment balance, and achieving target.
 """
 
-# === 🔷 GEMINI Button ===
-if st.button("🔷 Get Advice from Gemini"):
-    try:
-        model = genai.GenerativeModel("gemini-1.5-pro-latest")
-        gemini_response = model.generate_content(prompt).text
-        st.success("🌟 Gemini Says:")
-        st.markdown(gemini_response)
-    except Exception as e:
-        st.error(f"Gemini error: {e}")
+# 🧠 Gemini & DeepSeek buttons
+st.subheader("🤖 AI Suggestions")
+col1, col2 = st.columns(2)
 
-# === 🤖 DEEPSEEK Button ===
+if "gemini_output" not in st.session_state:
+    st.session_state.gemini_output = ""
+if "deepseek_output" not in st.session_state:
+    st.session_state.deepseek_output = ""
+
+if col1.button("Generate Gemini Suggestion"):
+    with col1:
+        with st.spinner("Gemini generating..."):
+            try:
+                model = genai.GenerativeModel("gemini-pro")
+                response = model.generate_content(prompt)
+                st.session_state.gemini_output = response.text
+            except Exception as e:
+                st.session_state.gemini_output = f"Gemini error: {e}"
+
 if col2.button("Generate DeepSeek Suggestion"):
     with col2:
         with st.spinner("DeepSeek generating..."):
@@ -157,7 +166,7 @@ if col2.button("Generate DeepSeek Suggestion"):
                     "Content-Type": "application/json"
                 }
                 payload = {
-                    "model": "deepseek/deepseek-r1:free",  # Update if needed
+                    "model": "deepseek/deepseek-r1:free",
                     "messages": [{"role": "user", "content": prompt}]
                 }
                 resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
@@ -178,8 +187,7 @@ with col2:
         st.subheader("🤖 DeepSeek Suggestion")
         st.write(st.session_state.deepseek_output)
 
-
-# ✅ EMBEDDED BOTPRESS WEBCHAT
+# ✅ Embedded Botpress WebChat
 st.subheader("🤖 Ask Your Financial Assistant (Botpress)")
 iframe_url = "https://cdn.botpress.cloud/webchat/v3.0/shareable.html?configUrl=https://files.bpcontent.cloud/2025/07/02/02/20250702020605-VDMFG1YB.json"
 st.markdown(
