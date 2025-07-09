@@ -1,9 +1,9 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests
 import google.generativeai as genai
+import uuid  # 👈 for dynamic Botpress session
 
 # 🔐 Secrets
 CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
@@ -66,8 +66,6 @@ total_exp = housing + food + transport + utilities + entertainment + others
 total_inv = stocks + bonds + real_estate + crypto + fixed_deposit
 net_flow = after_tax_income - total_exp - total_inv
 
-
-
 bal = 0
 rows = []
 for m in range(1, months + 1):
@@ -126,27 +124,38 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
-
 # ⚠️ Warnings and Emojis
-
 st.subheader("⚠️ Warnings and Financial Tips")
+warnings = []
 
 if total_exp > after_tax_income * 0.8:
-    st.warning("⚠️ Your expenses exceed 80% of your after-tax income. Consider reducing discretionary spending.")
+    warning = "⚠️ Your expenses exceed 80% of your after-tax income. Consider reducing discretionary spending."
+    warnings.append(warning)
+    st.warning(warning)
 
 if total_inv < after_tax_income * 0.1:
-    st.info("📉 You're investing less than 10% of your income. Try to increase your long-term savings.")
+    warning = "📉 You're investing less than 10% of your income. Try to increase your long-term savings."
+    warnings.append(warning)
+    st.info(warning)
 
 if net_flow < 0:
-    st.error("❌ Your monthly cash flow is negative. You're spending more than you earn!")
+    warning = "❌ Your monthly cash flow is negative. You're spending more than you earn!"
+    warnings.append(warning)
+    st.error(warning)
 
 if total_exp + total_inv > after_tax_income:
-    st.warning("⚠️ Total expenses and investments exceed income. Review your budgeting strategy.")
+    warning = "⚠️ Total expenses and investments exceed income. Review your budgeting strategy."
+    warnings.append(warning)
+    st.warning(warning)
 
 if savings_target > df['NetWorth'].iloc[-1]:
-    st.info("🎯 Your projected net worth is below your savings goal. Consider adjusting your targets or boosting investments.")
+    warning = "🎯 Your projected net worth is below your savings goal. Consider adjusting your targets or boosting investments."
+    warnings.append(warning)
+    st.info(warning)
 
-# 💬 Prompt
+warning_text = "\n".join(warnings) if warnings else "✅ No critical warnings."
+
+# 💬 AI Prompt
 prompt = f"""
 Financial summary:
 Gross income: ${income}
@@ -157,16 +166,21 @@ Investments: ${total_inv}
 Net cash flow: ${net_flow}/mo
 Savings target: ${savings_target}
 Projected net worth: ${df['NetWorth'].iloc[-1]}
-Provide advice on expense control, investment balance, and achieving target.
+
+Warnings:
+{warning_text}
+
+Please provide personalized financial advice on managing expenses, investments, and achieving savings goals.
 """
-# Session state to store outputs
+
+# 🤖 AI Suggestions
+st.subheader("🤖 AI Suggestions")
+col1, col2 = st.columns(2)
+
 if "gemini_output" not in st.session_state:
     st.session_state.gemini_output = ""
 if "deepseek_output" not in st.session_state:
     st.session_state.deepseek_output = ""
-
-# Columns
-col1, col2 = st.columns(2)
 
 if col1.button("Generate Gemini Suggestion"):
     with col1:
@@ -186,7 +200,7 @@ if col2.button("Generate DeepSeek Suggestion"):
                     "Content-Type": "application/json"
                 }
                 payload = {
-                    "model": "deepseek/deepseek-r1:free",  # Update if needed
+                    "model": "deepseek/deepseek-r1:free",
                     "messages": [{"role": "user", "content": prompt}]
                 }
                 resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
@@ -196,7 +210,7 @@ if col2.button("Generate DeepSeek Suggestion"):
             except Exception as e:
                 st.session_state.deepseek_output = f"OpenRouter error: {e}"
 
-# Display outputs
+# Display AI outputs
 with col1:
     if st.session_state.gemini_output:
         st.subheader("🤖 Gemini Suggestion")
@@ -207,12 +221,14 @@ with col2:
         st.subheader("🤖 DeepSeek Suggestion")
         st.write(st.session_state.deepseek_output)
 
-
-# ✅ Embedded Botpress WebChat
+# ✅ Embedded Botpress WebChat with new chat every reload
 st.subheader("🤖 Ask Your Financial Assistant (Botpress)")
-iframe_url = "https://cdn.botpress.cloud/webchat/v3.0/shareable.html?configUrl=https://files.bpcontent.cloud/2025/07/02/02/20250702020605-VDMFG1YB.json"
+user_id = str(uuid.uuid4())  # 👈 New chat every time
+config_url = "https://files.bpcontent.cloud/2025/07/02/02/20250702020605-VDMFG1YB.json"  # your actual config URL
+iframe_url = f"https://cdn.botpress.cloud/webchat/v3.0/shareable.html?configUrl={config_url}&userId={user_id}"
+
 st.markdown(
-    f'''
+    f"""
     <iframe
         src="{iframe_url}"
         width="100%"
@@ -220,6 +236,6 @@ st.markdown(
         style="border: none; margin-top: 20px;"
         allow="microphone">
     </iframe>
-    ''',
+    """,
     unsafe_allow_html=True
 )
