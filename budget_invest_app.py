@@ -4,18 +4,15 @@ import plotly.express as px
 import requests
 import google.generativeai as genai
 
-# ✅ Botpress Chat API (correct domain)
+# Load API secrets
 CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
 BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
-
-# Configure Gemini & OpenRouter
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
+API_KEY = st.secrets["alpha_vantage"]["api_key"]
 
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
 st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
-
-API_KEY = st.secrets["alpha_vantage"]["api_key"]
 
 def get_alpha_vantage_monthly_return(symbol):
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
@@ -27,10 +24,9 @@ def get_alpha_vantage_monthly_return(symbol):
     closes = [float(v["5. adjusted close"]) for v in ts.values()]
     if len(closes) < 2:
         return None
-    monthly_return = (closes[0] - closes[1]) / closes[1]
-    return monthly_return
+    return (closes[0] - closes[1]) / closes[1]
 
-# Inputs
+# Sidebar Inputs
 st.sidebar.header("📊 Monthly Income")
 income = st.sidebar.number_input("Monthly income (before tax, $)", min_value=0.0, value=5000.0, step=100.0)
 tax_rate = st.sidebar.slider("Tax rate (%)", 0, 50, 20)
@@ -53,14 +49,14 @@ fixed_deposit = st.sidebar.number_input("Fixed deposit ($)", 0.0, 5000.0, 0.0, 1
 months = st.sidebar.slider("Projection period (months)", 1, 60, 12)
 savings_target = st.sidebar.number_input("Savings target at end of period ($)", 0.0, 1_000_000.0, 10000.0, 500.0)
 
-# Returns
+# Investment Returns
 stock_r = get_alpha_vantage_monthly_return("SPY") or 0.01
 bond_r = get_alpha_vantage_monthly_return("AGG") or 0.003
 real_r = 0.004
 crypto_r = 0.02
 fd_r = 0.003
 
-# Calculations
+# Budget calculations
 after_tax_income = income * (1 - tax_rate / 100)
 total_exp = housing + food + transport + utilities + entertainment + others
 total_inv = stocks + bonds + real_estate + crypto + fixed_deposit
@@ -124,7 +120,7 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
-# Prompt to Botpress
+# Prompt for Botpress
 prompt = f"""
 Financial summary:
 Gross income: ${income}
@@ -138,37 +134,47 @@ Projected net worth: ${df['NetWorth'].iloc[-1]}
 Provide advice on expense control, investment balance, and achieving target.
 """
 
-# Botpress interaction
-if st.button("Send to Botpress"):
+# Chat-style input/output
+st.subheader("💬 Ask for Budgeting Advice")
+st.markdown("Talk to your financial assistant powered by Botpress!")
+user_msg = st.chat_input("Ask your question...")
+
+if user_msg:
+    with st.chat_message("user"):
+        st.markdown(user_msg)
+
     try:
         headers = {
             "Authorization": f"Bearer {BOTPRESS_TOKEN}",
             "Content-Type": "application/json"
         }
 
-        # ✅ Create conversation
         if "conversation_id" not in st.session_state:
             conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
             conv_resp = requests.post(conv_url, headers=headers, json={})
             conv_resp.raise_for_status()
-            st.session_state["conversation_id"] = conv_resp.json()["conversation"]["id"]
+            conv_data = conv_resp.json()
+            if "conversation" in conv_data and "id" in conv_data["conversation"]:
+                st.session_state["conversation_id"] = conv_data["conversation"]["id"]
+            else:
+                st.error(f"❌ Unexpected response: {conv_data}")
+                st.stop()
 
-        # ✅ Send message
         msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
         payload = {
-            "conversationId": st.session_state["conversation_id"],
-            "payload": {
-                "type": "text",
-                "text": prompt
-            }
+            "payload": {"type": "text", "text": f"{prompt}\n\nUser query: {user_msg}"},
+            "conversationId": st.session_state["conversation_id"]
         }
+
         msg_resp = requests.post(msg_url, headers=headers, json=payload)
         msg_resp.raise_for_status()
+        msg_data = msg_resp.json()
 
-        if msg_resp.headers.get("Content-Type", "").startswith("application/json"):
-            st.success(msg_resp.json())
+        if "replies" in msg_data and msg_data["replies"]:
+            with st.chat_message("assistant"):
+                st.markdown(msg_data["replies"][0]["payload"]["text"])
         else:
-            st.warning(f"Non-JSON response:\n{msg_resp.text}")
+            st.warning("🤖 Botpress did not return a reply.")
 
     except Exception as e:
         st.error(f"❌ Botpress error: {e}")
