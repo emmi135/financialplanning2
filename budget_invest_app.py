@@ -128,7 +128,6 @@ for role, msg in st.session_state.chat_history:
 # Get new input
 user_msg = st.chat_input("💬 Ask for budgeting advice...")
 
-user_msg = st.chat_input("💬 Ask for budgeting advice...")
 
 if user_msg:
     st.chat_message("user").write(user_msg)
