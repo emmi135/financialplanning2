@@ -159,6 +159,12 @@ Savings target: ${savings_target}
 Projected net worth: ${df['NetWorth'].iloc[-1]}
 Provide advice on expense control, investment balance, and achieving target.
 """
+# Session state to store outputs
+if "gemini_output" not in st.session_state:
+    st.session_state.gemini_output = ""
+if "deepseek_output" not in st.session_state:
+    st.session_state.deepseek_output = ""
+
 
 # 🧠 Gemini & DeepSeek buttons
 st.subheader("🤖 AI Suggestions")
