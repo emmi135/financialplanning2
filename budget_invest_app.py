@@ -100,6 +100,7 @@ st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 st.subheader("⚠️ Warnings and Financial Tips")
 
 # Generate warning messages for Botpress
+# 📤 Generate warning messages
 warnings = []
 
 if total_exp > after_tax_income * 0.8:
@@ -114,6 +115,42 @@ if savings_target > df['NetWorth'].iloc[-1]:
     warnings.append("🎯 Projected net worth is below your savings goal.")
 
 warning_text = "\n".join(warnings) if warnings else "✅ No critical warnings."
+
+# 💬 Full prompt for AI agents
+prompt = f"""
+Financial summary:
+Gross income: ${income}
+Tax rate: {tax_rate}%
+After-tax income: ${after_tax_income}
+Expenses: ${total_exp}
+Investments: ${total_inv}
+Net cash flow: ${net_flow}/mo
+Savings target: ${savings_target}
+Projected net worth: ${df['NetWorth'].iloc[-1]}
+
+Warnings:
+{warning_text}
+
+Please provide personalized financial advice on managing expenses, investments, and achieving savings goals.
+"""
+
+# ✅ Embedded Botpress WebChat
+st.subheader("🤖 Ask Your Financial Assistant (Botpress)")
+iframe_url = "https://cdn.botpress.cloud/webchat/v3.0/shareable.html?configUrl=https://files.bpcontent.cloud/2025/07/02/02/20250702020605-VDMFG1YB.json"
+st.markdown(
+    f'''
+    <iframe
+        src="{iframe_url}"
+        width="100%"
+        height="600"
+        style="border: none; margin-top: 20px;"
+        allow="microphone">
+    </iframe>
+    ''',
+    unsafe_allow_html=True
+)
+
+
 
 
 
@@ -208,22 +245,4 @@ with col2:
         st.subheader("🤖 DeepSeek Suggestion")
         st.write(st.session_state.deepseek_output)
 
-# ✅ Embedded Botpress WebChat
-prompt = f"""
-Financial summary:
-Gross income: ${income}
-Tax rate: {tax_rate}%
-After-tax income: ${after_tax_income}
-Expenses: ${total_exp}
-Investments: ${total_inv}
-Net cash flow: ${net_flow}/mo
-Savings target: ${savings_target}
-Projected net worth: ${df['NetWorth'].iloc[-1]}
 
-Warnings:
-{warning_text}
-
-Please provide personalized financial advice on managing expenses, investments, and achieving savings goals.
-"""
-
-)
