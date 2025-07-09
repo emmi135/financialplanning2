@@ -95,65 +95,6 @@ st.metric("Expenses", f"${total_exp:,.2f}")
 st.metric("Investments", f"${total_inv:,.2f}")
 st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
-# ⚠️ Warnings
-# ⚠️ Warnings and Emojis
-st.subheader("⚠️ Warnings and Financial Tips")
-
-# Generate warning messages for Botpress
-# 📤 Generate warning messages
-warnings = []
-
-if total_exp > after_tax_income * 0.8:
-    warnings.append("⚠️ Expenses exceed 80% of after-tax income.")
-if total_inv < after_tax_income * 0.1:
-    warnings.append("📉 Investments are less than 10% of income.")
-if net_flow < 0:
-    warnings.append("❌ Monthly cash flow is negative.")
-if total_exp + total_inv > after_tax_income:
-    warnings.append("⚠️ Expenses + Investments exceed after-tax income.")
-if savings_target > df['NetWorth'].iloc[-1]:
-    warnings.append("🎯 Projected net worth is below your savings goal.")
-
-warning_text = "\n".join(warnings) if warnings else "✅ No critical warnings."
-
-# 💬 Full prompt for AI agents
-prompt = f"""
-Financial summary:
-Gross income: ${income}
-Tax rate: {tax_rate}%
-After-tax income: ${after_tax_income}
-Expenses: ${total_exp}
-Investments: ${total_inv}
-Net cash flow: ${net_flow}/mo
-Savings target: ${savings_target}
-Projected net worth: ${df['NetWorth'].iloc[-1]}
-
-Warnings:
-{warning_text}
-
-Please provide personalized financial advice on managing expenses, investments, and achieving savings goals.
-"""
-
-# ✅ Embedded Botpress WebChat
-st.subheader("🤖 Ask Your Financial Assistant (Botpress)")
-iframe_url = "https://cdn.botpress.cloud/webchat/v3.0/shareable.html?configUrl=https://files.bpcontent.cloud/2025/07/02/02/20250702020605-VDMFG1YB.json"
-st.markdown(
-    f'''
-    <iframe
-        src="{iframe_url}"
-        width="100%"
-        height="600"
-        style="border: none; margin-top: 20px;"
-        allow="microphone">
-    </iframe>
-    ''',
-    unsafe_allow_html=True
-)
-
-
-
-
-
 # 📊 Charts
 st.subheader("📈 Net Worth Growth")
 fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"],
@@ -182,7 +123,7 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
-# 💬 Prompt
+# 📤 Prompt for advice
 prompt = f"""
 Financial summary:
 Gross income: ${income}
@@ -196,53 +137,18 @@ Projected net worth: ${df['NetWorth'].iloc[-1]}
 Provide advice on expense control, investment balance, and achieving target.
 """
 
-# 🤖 AI Suggestions
-st.subheader("🤖 AI Suggestions")
-col1, col2 = st.columns(2)
-
-if "gemini_output" not in st.session_state:
-    st.session_state.gemini_output = ""
-if "deepseek_output" not in st.session_state:
-    st.session_state.deepseek_output = ""
-
-if col1.button("Generate Gemini Suggestion"):
-    with col1:
-        with st.spinner("Gemini generating..."):
-            try:
-                model = genai.GenerativeModel("gemini-pro")
-                response = model.generate_content(prompt)
-                st.session_state.gemini_output = response.text
-            except Exception as e:
-                st.session_state.gemini_output = f"Gemini error: {e}"
-
-if col2.button("Generate DeepSeek Suggestion"):
-    with col2:
-        with st.spinner("DeepSeek generating..."):
-            try:
-                headers = {
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "deepseek/deepseek-r1:free",
-                    "messages": [{"role": "user", "content": prompt}]
-                }
-                resp = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
-                resp.raise_for_status()
-                data = resp.json()
-                st.session_state.deepseek_output = data["choices"][0]["message"]["content"]
-            except Exception as e:
-                st.session_state.deepseek_output = f"OpenRouter error: {e}"
-
-# Display outputs
-with col1:
-    if st.session_state.gemini_output:
-        st.subheader("🤖 Gemini Suggestion")
-        st.write(st.session_state.gemini_output)
-
-with col2:
-    if st.session_state.deepseek_output:
-        st.subheader("🤖 DeepSeek Suggestion")
-        st.write(st.session_state.deepseek_output)
-
-
+# ✅ Embedded Botpress WebChat
+st.subheader("🤖 Ask Your Financial Assistant (Botpress)")
+iframe_url = "https://cdn.botpress.cloud/webchat/v3.0/shareable.html?configUrl=https://files.bpcontent.cloud/2025/07/02/02/20250702020605-VDMFG1YB.json"
+st.markdown(
+    f'''
+    <iframe
+        src="{iframe_url}"
+        width="100%"
+        height="600"
+        style="border: none; margin-top: 20px;"
+        allow="microphone">
+    </iframe>
+    ''',
+    unsafe_allow_html=True
+)
