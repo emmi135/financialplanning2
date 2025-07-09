@@ -4,19 +4,19 @@ import plotly.express as px
 import requests
 import google.generativeai as genai
 
-# Load API keys
-CHAT_API_ID = st.secrets["botpress"]["test"]
+# --- API Keys ---
+CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
 BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
-API_KEY = st.secrets["alpha_vantage"]["api_key"]
+ALPHA_VANTAGE_KEY = st.secrets["alpha_vantage"]["api_key"]
 
-st.set_page_config(page_title="💸 Budget + Investment Planner", layout="wide")
-st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
+st.set_page_config(page_title="💸 Budget Planner + Botpress", layout="wide")
+st.title("💬 AI-Powered Budgeting & Investment Planner")
 
-# Get Monthly Return from Alpha Vantage
+# --- Alpha Vantage Monthly Return ---
 def get_alpha_vantage_monthly_return(symbol):
-    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
+    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={ALPHA_VANTAGE_KEY}"
     r = requests.get(url)
     if r.status_code != 200:
         return None
@@ -27,40 +27,41 @@ def get_alpha_vantage_monthly_return(symbol):
         return None
     return (closes[0] - closes[1]) / closes[1]
 
-# Sidebar Inputs
-st.sidebar.header("📊 Income")
-income = st.sidebar.number_input("Monthly income (before tax, $)", value=5000.0, step=100.0)
+# --- Sidebar Inputs ---
+st.sidebar.header("📊 Monthly Income")
+income = st.sidebar.number_input("Income before tax ($)", min_value=0.0, value=5000.0, step=100.0)
 tax_rate = st.sidebar.slider("Tax rate (%)", 0, 50, 20)
 
 st.sidebar.header("📌 Expenses")
-housing = st.sidebar.number_input("Housing / Rent", 0.0, 5000.0, 1200.0, 50.0)
-food = st.sidebar.number_input("Food / Groceries", 0.0, 5000.0, 500.0, 50.0)
-transport = st.sidebar.number_input("Transport", 0.0, 5000.0, 300.0, 50.0)
-utilities = st.sidebar.number_input("Utilities", 0.0, 5000.0, 200.0, 50.0)
-entertainment = st.sidebar.number_input("Entertainment", 0.0, 5000.0, 200.0, 50.0)
-others = st.sidebar.number_input("Other expenses", 0.0, 5000.0, 200.0, 50.0)
+housing = st.sidebar.number_input("Housing / Rent ($)", 0.0, 5000.0, 1200.0, 50.0)
+food = st.sidebar.number_input("Food / Groceries ($)", 0.0, 5000.0, 500.0, 50.0)
+transport = st.sidebar.number_input("Transport ($)", 0.0, 5000.0, 300.0, 50.0)
+utilities = st.sidebar.number_input("Utilities ($)", 0.0, 5000.0, 200.0, 50.0)
+entertainment = st.sidebar.number_input("Entertainment ($)", 0.0, 5000.0, 200.0, 50.0)
+others = st.sidebar.number_input("Other expenses ($)", 0.0, 5000.0, 200.0, 50.0)
 
 st.sidebar.header("📈 Investments")
-stocks = st.sidebar.number_input("Stocks", 0.0, 5000.0, 500.0, 100.0)
-bonds = st.sidebar.number_input("Bonds", 0.0, 5000.0, 300.0, 100.0)
-real_estate = st.sidebar.number_input("Real estate", 0.0, 5000.0, 0.0, 100.0)
-crypto = st.sidebar.number_input("Crypto", 0.0, 5000.0, 0.0, 100.0)
-fixed_deposit = st.sidebar.number_input("Fixed deposit", 0.0, 5000.0, 0.0, 100.0)
+stocks = st.sidebar.number_input("Stocks investment ($)", 0.0, 5000.0, 500.0, 100.0)
+bonds = st.sidebar.number_input("Bonds investment ($)", 0.0, 5000.0, 300.0, 100.0)
+real_estate = st.sidebar.number_input("Real estate ($)", 0.0, 5000.0, 0.0, 100.0)
+crypto = st.sidebar.number_input("Crypto ($)", 0.0, 5000.0, 0.0, 100.0)
+fixed_deposit = st.sidebar.number_input("Fixed deposit ($)", 0.0, 5000.0, 0.0, 100.0)
+months = st.sidebar.slider("Projection period (months)", 1, 60, 12)
+savings_target = st.sidebar.number_input("Target savings ($)", 0.0, 1000000.0, 10000.0, 500.0)
 
-months = st.sidebar.slider("Projection (months)", 1, 60, 12)
-savings_target = st.sidebar.number_input("Target net worth ($)", 0.0, 1_000_000.0, 10000.0, 500.0)
-
-# Returns
+# --- Returns ---
 stock_r = get_alpha_vantage_monthly_return("SPY") or 0.01
 bond_r = get_alpha_vantage_monthly_return("AGG") or 0.003
-real_r, crypto_r, fd_r = 0.004, 0.02, 0.003
+real_r = 0.004
+crypto_r = 0.02
+fd_r = 0.003
 
+# --- Calculations ---
 after_tax_income = income * (1 - tax_rate / 100)
 total_exp = housing + food + transport + utilities + entertainment + others
 total_inv = stocks + bonds + real_estate + crypto + fixed_deposit
 net_flow = after_tax_income - total_exp - total_inv
 
-# Projection
 bal = 0
 rows = []
 for m in range(1, months + 1):
@@ -83,85 +84,81 @@ for m in range(1, months + 1):
     })
 df = pd.DataFrame(rows)
 
-# Summary
+# --- Summary ---
 st.subheader("📋 Summary")
-st.metric("Gross Income", f"${income:,.2f}")
-st.metric("After Tax Income", f"${after_tax_income:,.2f}")
+st.metric("After-tax Income", f"${after_tax_income:,.2f}")
 st.metric("Expenses", f"${total_exp:,.2f}")
 st.metric("Investments", f"${total_inv:,.2f}")
 st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
-# Charts
-st.subheader("📈 Net Worth Over Time")
-fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"],
-              markers=True, title="Net Worth Projection")
-fig.add_hline(y=savings_target, line_dash="dash", line_color="red", annotation_text="Target")
+# --- Charts ---
+st.subheader("📈 Net Worth Projection")
+fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"])
+fig.add_hline(y=savings_target, line_dash="dot", line_color="red", annotation_text="Savings Target")
 st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("🧾 Expense Breakdown")
-exp_data = pd.Series({
+st.subheader("💰 Expense Breakdown")
+exp_s = pd.Series({
     "Housing": housing, "Food": food, "Transport": transport,
     "Utilities": utilities, "Entertainment": entertainment, "Others": others
 })
-st.plotly_chart(px.pie(names=exp_data.index, values=exp_data.values, title="Expense Breakdown"), use_container_width=True)
+st.plotly_chart(px.pie(names=exp_s.index, values=exp_s.values), use_container_width=True)
 
-st.subheader("💼 Investment Breakdown")
-inv_data = pd.Series({
+st.subheader("📊 Investment Breakdown")
+inv_s = pd.Series({
     "Stocks": stocks, "Bonds": bonds, "RealEstate": real_estate,
     "Crypto": crypto, "FixedDeposit": fixed_deposit
 })
-st.plotly_chart(px.pie(names=inv_data.index, values=inv_data.values, title="Investment Breakdown"), use_container_width=True)
+st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values), use_container_width=True)
 
-# Final Prompt
-prompt = f"""
-💵 Financial Summary:
-- Gross income: ${income}
-- Tax rate: {tax_rate}%
-- After-tax income: ${after_tax_income}
-- Monthly expenses: ${total_exp}
-- Monthly investments: ${total_inv}
-- Net cash flow: ${net_flow}/mo
-- Savings target: ${savings_target}
-- Projected net worth: ${df['NetWorth'].iloc[-1]}
+# --- Botpress Chat Integration ---
+st.subheader("🤖 Ask Botpress for Advice")
 
-🎯 Provide smart, specific suggestions to manage high expenses, rebalance investments, and meet the savings target.
-"""
+# Setup session state for chat
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "conversation_id" not in st.session_state:
+    st.session_state.conversation_id = None
 
-# Botpress AI Integration
-if st.button("Send to Botpress"):
-    try:
+# Display past messages
+for role, msg in st.session_state.chat_history:
+    with st.chat_message(role):
+        st.markdown(msg)
+
+# Get new input
+if user_input := st.chat_input("Ask something about your budget..."):
+    st.session_state.chat_history.append(("user", user_input))
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    headers = {
+        "Authorization": f"Bearer {BOTPRESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    # Create conversation if needed
+    if not st.session_state.conversation_id:
         conv_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/conversations"
-        headers = {
-            "Authorization": f"Bearer {BOTPRESS_TOKEN}",
-            "Content-Type": "application/json"
-        }
-
-        conv_resp = requests.post(conv_url, headers=headers, json={})
-        if conv_resp.status_code != 200:
-            raise Exception(f"Conversation start failed: {conv_resp.text}")
-
-        conv_data = conv_resp.json()
-        if "id" not in conv_data:
-            raise Exception("❌ Botpress did not return a conversation ID.")
-        conversation_id = conv_data["id"]
-
-        # Send message to conversation
-        msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
-        payload = {
-            "conversationId": conversation_id,
-            "payload": {"type": "text", "text": prompt}
-        }
-        msg_resp = requests.post(msg_url, headers=headers, json=payload)
-        msg_resp.raise_for_status()
-
-        # Parse Botpress reply
-        reply_data = msg_resp.json()
-        if isinstance(reply_data, dict) and "messages" in reply_data and len(reply_data["messages"]) > 0:
-            reply_text = reply_data["messages"][0].get("payload", {}).get("text", "No reply received.")
+        conv_resp = requests.post(conv_url, headers=headers)
+        if conv_resp.ok:
+            st.session_state.conversation_id = conv_resp.json().get("id")
         else:
-            reply_text = "No reply received."
+            st.error("❌ Failed to start Botpress conversation.")
+            st.stop()
 
-        st.markdown(f"🤖 Botpress says:\n\n> {reply_text}")
+    # Send message
+    msg_url = f"https://chat.botpress.cloud/api/v1/bots/{CHAT_API_ID}/messages"
+    payload = {
+        "conversationId": st.session_state.conversation_id,
+        "payload": {"type": "text", "text": user_input}
+    }
+    msg_resp = requests.post(msg_url, headers=headers, json=payload)
 
-    except Exception as e:
-        st.error(f"❌ Botpress error: {e}")
+    if msg_resp.ok:
+        reply_data = msg_resp.json()
+        reply = reply_data.get("responses", ["🤖 No reply received."])[0]
+        st.session_state.chat_history.append(("assistant", reply))
+        with st.chat_message("assistant"):
+            st.markdown(reply)
+    else:
+        st.error("❌ Botpress error: " + msg_resp.text)
