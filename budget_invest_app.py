@@ -126,8 +126,10 @@ for role, msg in st.session_state.chat_history:
         st.markdown(msg)
 
 # Get new input
-if st.chat_input("💬 Ask for budgeting advice..."):
-    user_msg = st.session_state.input
+user_msg = st.chat_input("💬 Ask for budgeting advice...")
+
+if user_msg:
+
     with st.spinner("Botpress thinking..."):
         try:
             # Start conversation (once)
