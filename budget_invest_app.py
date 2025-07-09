@@ -3,20 +3,24 @@ import pandas as pd
 import plotly.express as px
 import requests
 import google.generativeai as genai
-import os
 
-# 🔐 Secrets
+
+
 CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
 BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
+
+
+
+# Configure API keys
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
-API_KEY = st.secrets["alpha_vantage"]["api_key"]
 
-# 📄 App config
+
 st.set_page_config(page_title="💸 Multi-LLM Budget Planner", layout="wide")
 st.title("💸 Budgeting + Investment Planner (Multi-LLM AI Suggestions)")
 
-# 📉 Alpha Vantage function
+API_KEY = st.secrets["alpha_vantage"]["api_key"]
+
 def get_alpha_vantage_monthly_return(symbol):
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY_ADJUSTED&symbol={symbol}&apikey={API_KEY}"
     r = requests.get(url)
@@ -30,7 +34,7 @@ def get_alpha_vantage_monthly_return(symbol):
     monthly_return = (closes[0] - closes[1]) / closes[1]
     return monthly_return
 
-# 🧾 Inputs
+# Inputs
 st.sidebar.header("📊 Monthly Income")
 income = st.sidebar.number_input("Monthly income (before tax, $)", min_value=0.0, value=5000.0, step=100.0)
 tax_rate = st.sidebar.slider("Tax rate (%)", 0, 50, 20)
@@ -53,14 +57,14 @@ fixed_deposit = st.sidebar.number_input("Fixed deposit ($)", 0.0, 5000.0, 0.0, 1
 months = st.sidebar.slider("Projection period (months)", 1, 60, 12)
 savings_target = st.sidebar.number_input("Savings target at end of period ($)", 0.0, 1_000_000.0, 10000.0, 500.0)
 
-# 📈 Returns
+# Returns
 stock_r = get_alpha_vantage_monthly_return("SPY") or 0.01
 bond_r = get_alpha_vantage_monthly_return("AGG") or 0.003
 real_r = 0.004
 crypto_r = 0.02
 fd_r = 0.003
 
-# 💰 Calculations
+# Calculations
 after_tax_income = income * (1 - tax_rate / 100)
 total_exp = housing + food + transport + utilities + entertainment + others
 total_inv = stocks + bonds + real_estate + crypto + fixed_deposit
@@ -88,7 +92,7 @@ for m in range(1, months + 1):
     })
 df = pd.DataFrame(rows)
 
-# 📋 Summary
+# Summary
 st.subheader("📋 Summary")
 st.metric("Income (gross)", f"${income:,.2f}")
 st.metric("After tax income", f"${after_tax_income:,.2f}")
@@ -96,7 +100,7 @@ st.metric("Expenses", f"${total_exp:,.2f}")
 st.metric("Investments", f"${total_inv:,.2f}")
 st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 
-# 📊 Charts
+# Charts
 st.subheader("📈 Net Worth Growth")
 fig = px.line(df, x="Month", y=["Balance", "Stocks", "Bonds", "RealEstate", "Crypto", "FixedDeposit", "NetWorth"],
               markers=True, title="Net Worth & Investments Over Time")
@@ -124,7 +128,7 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
-# 📤 Prompt for AI agents
+# Prompt
 prompt = f"""
 Financial summary:
 Gross income: ${income}
@@ -138,46 +142,35 @@ Projected net worth: ${df['NetWorth'].iloc[-1]}
 Provide advice on expense control, investment balance, and achieving target.
 """
 
-# 💬 Chat with Gemini or DeepSeek
-st.subheader("🧠 AI Financial Advisor (Gemini or DeepSeek)")
-llm_choice = st.radio("Choose LLM:", ["Gemini (Google)", "DeepSeek (OpenRouter)"])
+# Botpress interaction
+if st.button("Send to Botpress"):
+    try:
+        # Create conversation if not exists
+        if "conversation_id" not in st.session_state:
+            conv_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/conversations"
+            headers = {
+                "Authorization": f"Bearer {BOTPRESS_TOKEN}",
+                "Content-Type": "application/json"
+            }
+            conv_resp = requests.post(conv_url, headers=headers, json={"body": {}})
+            conv_resp.raise_for_status()
+            st.session_state["conversation_id"] = conv_resp.json()["conversation"]["id"]
 
-if st.button("📩 Get AI Advice"):
-    with st.spinner("Thinking..."):
-        try:
-            if llm_choice == "Gemini (Google)":
-                model = genai.GenerativeModel("gemini-pro")
-                response = model.generate_content(prompt)
-                st.success(response.text)
-            else:
-                resp = requests.post(
-                    url="https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "deepseek-chat",
-                        "messages": [{"role": "user", "content": prompt}]
-                    }
-                )
-                data = resp.json()
-                st.success(data["choices"][0]["message"]["content"])
-        except Exception as e:
-            st.error(f"Error: {e}")
+        # Send message
+        msg_url = f"https://chat.botpress.cloud/v1/{CHAT_API_ID}/messages"
+        payload = {
+            "payload": {"type": "text", "text": prompt},
+            "conversationId": st.session_state["conversation_id"]
+        }
+        msg_resp = requests.post(msg_url, headers=headers, json=payload)
+        st.text(f"Status: {msg_resp.status_code}")
+        st.text(f"Response: {msg_resp.text}")
 
-# ✅ Embedded Botpress WebChat
-st.subheader("🤖 Ask Your Financial Assistant (Botpress)")
-iframe_url = "https://cdn.botpress.cloud/webchat/v3.0/shareable.html?configUrl=https://files.bpcontent.cloud/2025/07/02/02/20250702020605-VDMFG1YB.json"
-st.markdown(
-    f'''
-    <iframe
-        src="{iframe_url}"
-        width="100%"
-        height="600"
-        style="border: none; margin-top: 20px;"
-        allow="microphone">
-    </iframe>
-    ''',
-    unsafe_allow_html=True
-)
+        if 'application/json' in msg_resp.headers.get('Content-Type', ''):
+            data = msg_resp.json()
+            st.success(data)
+        else:
+            st.warning(f"Non-JSON response:\n{msg_resp.text}")
+
+    except Exception as e:
+        st.error(f"Botpress error: {e}")
