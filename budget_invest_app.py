@@ -65,24 +65,7 @@ after_tax_income = income * (1 - tax_rate / 100)
 total_exp = housing + food + transport + utilities + entertainment + others
 total_inv = stocks + bonds + real_estate + crypto + fixed_deposit
 net_flow = after_tax_income - total_exp - total_inv
-# ⚠️ Warnings and Emojis
 
-st.subheader("⚠️ Warnings and Financial Tips")
-
-if total_exp > after_tax_income * 0.8:
-    st.warning("⚠️ Your expenses exceed 80% of your after-tax income. Consider reducing discretionary spending.")
-
-if total_inv < after_tax_income * 0.1:
-    st.info("📉 You're investing less than 10% of your income. Try to increase your long-term savings.")
-
-if net_flow < 0:
-    st.error("❌ Your monthly cash flow is negative. You're spending more than you earn!")
-
-if total_exp + total_inv > after_tax_income:
-    st.warning("⚠️ Total expenses and investments exceed income. Review your budgeting strategy.")
-
-if savings_target > df['NetWorth'].iloc[-1]:
-    st.info("🎯 Your projected net worth is below your savings goal. Consider adjusting your targets or boosting investments.")
 
 
 bal = 0
