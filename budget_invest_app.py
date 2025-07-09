@@ -99,20 +99,22 @@ st.metric("Net Cash Flow", f"${net_flow:,.2f}/mo")
 # ⚠️ Warnings and Emojis
 st.subheader("⚠️ Warnings and Financial Tips")
 
+# Generate warning messages for Botpress
+warnings = []
+
 if total_exp > after_tax_income * 0.8:
-    st.warning("⚠️ Your expenses exceed 80% of your after-tax income. Consider reducing discretionary spending.")
-
+    warnings.append("⚠️ Expenses exceed 80% of after-tax income.")
 if total_inv < after_tax_income * 0.1:
-    st.info("📉 You're investing less than 10% of your income. Try to increase your long-term savings.")
-
+    warnings.append("📉 Investments are less than 10% of income.")
 if net_flow < 0:
-    st.error("❌ Your monthly cash flow is negative. You're spending more than you earn!")
-
+    warnings.append("❌ Monthly cash flow is negative.")
 if total_exp + total_inv > after_tax_income:
-    st.warning("⚠️ Total expenses and investments exceed income. Review your budgeting strategy.")
-
+    warnings.append("⚠️ Expenses + Investments exceed after-tax income.")
 if savings_target > df['NetWorth'].iloc[-1]:
-    st.info("🎯 Your projected net worth is below your savings goal. Consider adjusting your targets or boosting investments.")
+    warnings.append("🎯 Projected net worth is below your savings goal.")
+
+warning_text = "\n".join(warnings) if warnings else "✅ No critical warnings."
+
 
 
 # 📊 Charts
@@ -207,17 +209,21 @@ with col2:
         st.write(st.session_state.deepseek_output)
 
 # ✅ Embedded Botpress WebChat
-st.subheader("🤖 Ask Your Financial Assistant (Botpress)")
-iframe_url = "https://cdn.botpress.cloud/webchat/v3.0/shareable.html?configUrl=https://files.bpcontent.cloud/2025/07/02/02/20250702020605-VDMFG1YB.json"
-st.markdown(
-    f'''
-    <iframe
-        src="{iframe_url}"
-        width="100%"
-        height="600"
-        style="border: none; margin-top: 20px;"
-        allow="microphone">
-    </iframe>
-    ''',
-    unsafe_allow_html=True
+prompt = f"""
+Financial summary:
+Gross income: ${income}
+Tax rate: {tax_rate}%
+After-tax income: ${after_tax_income}
+Expenses: ${total_exp}
+Investments: ${total_inv}
+Net cash flow: ${net_flow}/mo
+Savings target: ${savings_target}
+Projected net worth: ${df['NetWorth'].iloc[-1]}
+
+Warnings:
+{warning_text}
+
+Please provide personalized financial advice on managing expenses, investments, and achieving savings goals.
+"""
+
 )
