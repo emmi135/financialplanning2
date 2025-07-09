@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import requests
 import google.generativeai as genai
+import os
 
 # 🔐 Secrets
 CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
@@ -123,7 +124,7 @@ inv_s = pd.Series({
 })
 st.plotly_chart(px.pie(names=inv_s.index, values=inv_s.values, title="Investment Breakdown"), use_container_width=True)
 
-# 📤 Prompt for advice
+# 📤 Prompt for AI agents
 prompt = f"""
 Financial summary:
 Gross income: ${income}
@@ -136,6 +137,34 @@ Savings target: ${savings_target}
 Projected net worth: ${df['NetWorth'].iloc[-1]}
 Provide advice on expense control, investment balance, and achieving target.
 """
+
+# 💬 Chat with Gemini or DeepSeek
+st.subheader("🧠 AI Financial Advisor (Gemini or DeepSeek)")
+llm_choice = st.radio("Choose LLM:", ["Gemini (Google)", "DeepSeek (OpenRouter)"])
+
+if st.button("📩 Get AI Advice"):
+    with st.spinner("Thinking..."):
+        try:
+            if llm_choice == "Gemini (Google)":
+                model = genai.GenerativeModel("gemini-pro")
+                response = model.generate_content(prompt)
+                st.success(response.text)
+            else:
+                resp = requests.post(
+                    url="https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "deepseek-chat",
+                        "messages": [{"role": "user", "content": prompt}]
+                    }
+                )
+                data = resp.json()
+                st.success(data["choices"][0]["message"]["content"])
+        except Exception as e:
+            st.error(f"Error: {e}")
 
 # ✅ Embedded Botpress WebChat
 st.subheader("🤖 Ask Your Financial Assistant (Botpress)")
