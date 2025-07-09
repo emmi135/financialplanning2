@@ -5,7 +5,7 @@ import requests
 import google.generativeai as genai
 
 # Load API keys
-CHAT_API_ID = st.secrets["botpress"]["chat_api_id"]
+CHAT_API_ID = st.secrets["botpress"]["test"]
 BOTPRESS_TOKEN = st.secrets["botpress"]["token"]
 genai.configure(api_key=st.secrets["gemini"]["api_key"])
 OPENROUTER_API_KEY = st.secrets["openrouter"]["api_key"]
