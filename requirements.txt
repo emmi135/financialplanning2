@@ -9,4 +9,8 @@ sseclient
 
 fastapi
 uvicorn
+pydantic
+
+python-dotenv
+
 
