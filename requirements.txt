@@ -1,0 +1,12 @@
+streamlit
+pandas
+plotly
+requests
+google-generativeai
+openai
+huggingface-hub
+sseclient
+fastapi
+uvicorn
+pydantic
+python-dotenv
