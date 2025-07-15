@@ -6,3 +6,7 @@ google-generativeai
 openai
 huggingface-hub
 sseclient
+
+fastapi
+uvicorn
+
