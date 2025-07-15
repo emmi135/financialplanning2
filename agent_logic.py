@@ -1,11 +1,10 @@
-# agent_logic.py
+import os
 import requests
 
 def run_budget_agent(user_input: str) -> str:
-    # Your actual LLM logic here
-    # This version uses OpenRouter (DeepSeek) — adjust as needed
+    # Use DeepSeek or any OpenRouter model you prefer
     headers = {
-        "Authorization": "Bearer YOUR_OPENROUTER_API_KEY",
+        "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
     }
     data = {
         "model": "deepseek/deepseek-chat",
@@ -13,6 +12,5 @@ def run_budget_agent(user_input: str) -> str:
             {"role": "user", "content": user_input}
         ]
     }
-    res = requests.post("https://openrouter.ai/api/v1/chat/completions", json=data, headers=headers)
-    reply = res.json()["choices"][0]["message"]["content"]
-    return reply
+    response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+    return response.json()["choices"][0]["message"]["content"]
